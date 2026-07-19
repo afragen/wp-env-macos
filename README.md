@@ -124,6 +124,11 @@ ls -d ~/.wp-env/*/
 npx wp-env-opossum init
 ```
 
+`init` is re-runnable: if `compose.yaml` already exists, `init` automatically
+forces the overwrite (printing a notice) rather than refusing — no need to set
+`WP_ENV_FORCE_INIT=1` manually. `WP_ENV_FORCE_INIT=1` is still honored if you
+prefer to be explicit.
+
 This scaffolds into the current project:
 
 - **`compose.yaml`** — rendered from a template, with your plugin slug, dev

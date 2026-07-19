@@ -76,9 +76,12 @@ ensure_dns() {
 
 # --- `init`: scaffold compose.yaml + .env into the current project ---
 do_init() {
-	if [ -f compose.yaml ] && [ -z "$WP_ENV_FORCE_INIT" ]; then
-		echo "gu-env: compose.yaml already exists — refusing to overwrite (set WP_ENV_FORCE_INIT=1 to force)." >&2
-		exit 1
+	# If compose.yaml already exists, re-init is allowed — automatically force
+	# the overwrite (equivalent to running with WP_ENV_FORCE_INIT=1) instead of
+	# refusing.
+	if [ -f compose.yaml ]; then
+		[ -n "$WP_ENV_FORCE_INIT" ] || echo "gu-env: compose.yaml already exists — re-initializing (overwrite forced)." >&2
+		WP_ENV_FORCE_INIT=1
 	fi
 	# Determine the plugin slug: it's the project directory name, since the
 	# project root is mounted at wp-content/plugins/<slug>. (.wp-env.json may
