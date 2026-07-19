@@ -129,8 +129,10 @@ This scaffolds into the current project:
 
 ### 3. Point at the cache
 
-`init` prints the cache dir it detected. If it auto-filled, you're done.
-Otherwise:
+`init` prints the cache dir it detected and, when there's exactly one,
+auto-writes `WP_ENV_CACHE_DIR` into `.env` for you — in that case you're done.
+If it could not auto-fill (multiple or no cache dirs), set `WP_ENV_CACHE_DIR`
+in `.env` yourself:
 
 - **Multiple cache dirs under `~/.wp-env`:** any cache dir that contains the
   four subdirs `WordPress/`, `tests-WordPress/`, `WordPress-PHPUnit/`, and
@@ -142,10 +144,14 @@ Otherwise:
   ls -d ~/.wp-env/*/
   # pick any dir that has WordPress/, tests-WordPress/, *-PHPUnit/ subdirs
   ```
-  Set that as `WP_ENV_CACHE_DIR` in `.env`.
+  Then add that path to your project `.env` (create `.env` if it doesn't
+  exist — `init` already scaffolded one) under `WP_ENV_CACHE_DIR`:
+  ```sh
+  echo "WP_ENV_CACHE_DIR=/Users/you/.wp-env/d0e5a894db5a72bb9cfe0514aeee78fb" >> .env
+  ```
 - **No `~/.wp-env` yet:** run `npx wp-env start` once (step 1) to
   populate it, then re-run `npx wp-env-opossum init` — it will now
-  auto-fill the path.
+  auto-fill the path into `.env` for you.
 
 Everything else (ports, host user identity, xdebug host) is auto-detected.
 
