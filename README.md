@@ -51,15 +51,13 @@ In your WordPress plugin/theme project (the one that already has a
 `.wp-env.json`):
 
 ```sh
-npm install -D wp-env-opossum @wordpress/env
+npm install -D wp-env-opossum
 ```
 
-Then install the package (the `init` command below adds the npm scripts for
-you, so you don't need to edit `package.json` manually):
-
-```sh
-npm install -D wp-env-opossum @wordpress/env
-```
+This installs `wp-env-opossum` as a devDependency; `init` (below) adds the npm
+scripts for you, so you don't need to edit `package.json` manually. `@wordpress/env`
+is only needed once to seed the cache — install it transiently with `--no-save`
+(see step 1) so it never lands in your committed `package.json`/`package-lock.json`.
 
 > If you'd rather set the scripts yourself, the mapping is:
 > `env:start`→`wp-env-opossum up`, `env:stop`→`wp-env-opossum down`,
