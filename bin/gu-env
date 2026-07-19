@@ -138,11 +138,23 @@ sys.stdout.write(s)
 PY
 }
 
+# Detect the wp-env cache dir: if ~/.wp-env has exactly one subdirectory,
+# use it; otherwise emit nothing (caller leaves WP_ENV_CACHE_DIR blank).
+detect_cache_dir() {
+	local cache_root="$HOME/.wp-env"
+	[ -d "$cache_root" ] || return 0
+	local dirs
+	dirs="$(find "$cache_root" -maxdepth 1 -type d -name '*' ! -name "$(basename "$cache_root")" 2>/dev/null)"
+	local count
+	count="$(printf '%s\n' $dirs | grep -c .)"
+	[ "$count" = "1" ] && printf '%s' "$dirs"
+}
+
 render_env_body() {
 	cat <<EOF
-# Path to @wordpress/env's cache (populated by 'wp-env start' once). Find it via:
-#   ls -d ~/.wp-env/*/
-WP_ENV_CACHE_DIR=
+# Path to @wordpress/env's cache (populated by 'wp-env start' once). Found via:
+#   ls -d ~/.wp-env/*/   (auto-detected below if exactly one exists)
+WP_ENV_CACHE_DIR=${WP_ENV_CACHE_DIR:-$(detect_cache_dir)}
 
 # Host user identity is auto-detected by gu-env from 'id' — usually no need to set.
 # HOST_USERNAME=
