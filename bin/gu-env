@@ -135,23 +135,24 @@ do_init() {
 render_compose() {
 	# Render the template: replace placeholders with project-specific values.
 	python3 - "$WP_PLUGIN_SLUG" "$WP_ENV_FIXTURE_PLUGINS" "$WP_ENV_FIXTURE_THEMES" "$DEV_THEME" "$PKG_ROOT/templates/compose.yaml.tpl" <<'PY'
-import sys, io
+import sys, os
 slug, fx_plugins, fx_themes, dev_theme, tpl = sys.argv[1:6]
+pwd = os.getcwd()
 def mount_lines(paths):
     out=[]
     for p in paths.split():
-        out.append(f"      - '{{PWD}}/{p}:/var/www/html/wp-content/plugins/{p.split('/')[-1]}'")
+        out.append(f"      - '{pwd}/{p}:/var/www/html/wp-content/plugins/{p.split('/')[-1]}'")
     return "\n".join(out)
 def theme_lines(paths):
     out=[]
     for p in paths.split():
-        out.append(f"      - '{{PWD}}/{p}:/var/www/html/wp-content/themes/{p.split('/')[-1]}'")
+        out.append(f"      - '{pwd}/{p}:/var/www/html/wp-content/themes/{p.split('/')[-1]}'")
     return "\n".join(out)
 s=open(tpl, encoding='utf-8').read()
 s=s.replace('@@PLUGIN_SLUG@@', slug)
 s=s.replace('@@DEV_THEME@@', dev_theme)
-s=s.replace('@@FIXTURE_PLUGIN_MOUNTS@@', mount_lines(fx_plugins) or "      # (no fixture plugins)")
-s=s.replace('@@FIXTURE_THEME_MOUNTS@@', theme_lines(fx_themes) or "      # (no fixture themes)")
+s=s.replace('@@FIXTURE_PLUGIN_MOUNTS@@', mount_lines(fx_plugins) or "# (no fixture plugins)")
+s=s.replace('@@FIXTURE_THEME_MOUNTS@@', theme_lines(fx_themes) or "# (no fixture themes)")
 sys.stdout.write(s)
 PY
 }

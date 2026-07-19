@@ -76,8 +76,8 @@ services:
       - '${WP_ENV_CACHE_DIR}/WordPress-PHPUnit/tests/phpunit:/wordpress-phpunit'
       - ${PWD}/.opossum-home/user:/home/${HOST_USERNAME}
       - '${PWD}:/var/www/html/wp-content/plugins/@@PLUGIN_SLUG@@'
-      @@FIXTURE_PLUGIN_MOUNTS@@
-      @@FIXTURE_THEME_MOUNTS@@
+@@FIXTURE_PLUGIN_MOUNTS@@
+@@FIXTURE_THEME_MOUNTS@@
 
   tests-wordpress:
     depends_on:
@@ -106,8 +106,8 @@ services:
       - '${WP_ENV_CACHE_DIR}/tests-WordPress-PHPUnit/tests/phpunit:/wordpress-phpunit'
       - ${PWD}/.opossum-home/tests-user:/home/${HOST_USERNAME}
       - '${PWD}:/var/www/html/wp-content/plugins/@@PLUGIN_SLUG@@'
-      @@FIXTURE_PLUGIN_MOUNTS@@
-      @@FIXTURE_THEME_MOUNTS@@
+@@FIXTURE_PLUGIN_MOUNTS@@
+@@FIXTURE_THEME_MOUNTS@@
 
   cli:
     depends_on:
@@ -125,8 +125,8 @@ services:
       - '${WP_ENV_CACHE_DIR}/WordPress-PHPUnit/tests/phpunit:/wordpress-phpunit'
       - ${PWD}/.opossum-home/user:/home/${HOST_USERNAME}
       - '${PWD}:/var/www/html/wp-content/plugins/@@PLUGIN_SLUG@@'
-      @@FIXTURE_PLUGIN_MOUNTS@@
-      @@FIXTURE_THEME_MOUNTS@@
+@@FIXTURE_PLUGIN_MOUNTS@@
+@@FIXTURE_THEME_MOUNTS@@
     user: '${HOST_UID}:${HOST_GID}'
     environment:
       WORDPRESS_DB_USER: root
@@ -152,8 +152,8 @@ services:
       - '${WP_ENV_CACHE_DIR}/tests-WordPress-PHPUnit/tests/phpunit:/wordpress-phpunit'
       - ${PWD}/.opossum-home/tests-user:/home/${HOST_USERNAME}
       - '${PWD}:/var/www/html/wp-content/plugins/@@PLUGIN_SLUG@@'
-      @@FIXTURE_PLUGIN_MOUNTS@@
-      @@FIXTURE_THEME_MOUNTS@@
+@@FIXTURE_PLUGIN_MOUNTS@@
+@@FIXTURE_THEME_MOUNTS@@
     user: '${HOST_UID}:${HOST_GID}'
     environment:
       WORDPRESS_DB_USER: root
