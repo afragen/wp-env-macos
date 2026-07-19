@@ -96,6 +96,8 @@ do_init() {
 	mkdir -p docker
 	cp -R "$PKG_ROOT/docker/." docker/ 2>/dev/null || true
 
+	# Add wp-env-opossum scripts to package.json (idempotent).
+	sync_package_scripts
 	# Write/extend .env. If it already exists (e.g. from another tool), append
 	# the wp-env-opossum keys rather than overwriting — but only once, guarded
 	# by a marker comment so re-running init is idempotent.
@@ -115,6 +117,7 @@ do_init() {
 	echo "gu-env: initialized in $(pwd)"
 	echo "  plugin slug : $WP_PLUGIN_SLUG"
 	echo "  fixtures    : ${WP_ENV_FIXTURE_PLUGINS:-none} ${WP_ENV_FIXTURE_THEMES:+| $WP_ENV_FIXTURE_THEMES}"
+	[ -f package.json ] && echo "  scripts     : added env:start/env:stop/env:install/test[/:multisite/:coverage/:php80] to package.json"
 	# Surface the wp-env cache dir so the user can paste it into .env.
 	cache_dir="$(detect_cache_dir || true)"
 	if [ -n "$cache_dir" ]; then
@@ -130,6 +133,19 @@ do_init() {
 		echo "    → run 'wp-env start' once to populate it, then re-run 'gu-env init'"
 	fi
 	echo "  next steps  : set WP_ENV_CACHE_DIR in .env, then 'gu-env up'"
+}
+
+# Add wp-env-opossum scripts to package.json if it exists, idempotently.
+# Uses `npm pkg set` so existing scripts are preserved and JSON stays valid.
+sync_package_scripts() {
+	[ -f package.json ] || return 0
+	npm pkg set scripts.env:start="wp-env-opossum up" >/dev/null 2>&1 || true
+	npm pkg set scripts.env:stop="wp-env-opossum down" >/dev/null 2>&1 || true
+	npm pkg set scripts.env:install="wp-env-opossum provision" >/dev/null 2>&1 || true
+	npm pkg set scripts.test="wp-env-opossum test" >/dev/null 2>&1 || true
+	npm pkg set scripts.test:multisite="wp-env-opossum test:multisite" >/dev/null 2>&1 || true
+	npm pkg set scripts.test:coverage="wp-env-opossum test:coverage" >/dev/null 2>&1 || true
+	npm pkg set scripts.test:php80="wp-env-opossum test:php80" >/dev/null 2>&1 || true
 }
 
 render_compose() {
