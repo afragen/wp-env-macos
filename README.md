@@ -68,6 +68,11 @@ npm install -D wp-env-opossum @wordpress/env
 
 > **Variant 1 (recommended):** keep `@wordpress/env` as a devDependency purely to
 > seed the `~/.wp-env` cache once. This is the simplest, most battle-tested path.
+> To avoid the ~390 transitive packages landing in your project's `node_modules`,
+> seed transiently with `--no-save` (installs into `node_modules` but does
+> NOT write it into `package.json`): `npm install -D @wordpress/env --no-save`,
+> then `npx wp-env start`, then `npm uninstall @wordpress/env --no-save`.
+> The cache persists; the dependency is never committed.
 >
 > **Variant 2 (future):** a built-in `install-wp-tests` could fetch WordPress
 > core + PHPUnit libs directly (via `svn`), removing the wp-env dependency
@@ -83,9 +88,16 @@ wp-env-opossum reuses wp-env's downloaded WordPress core and PHPUnit libraries,
 cached under `~/.wp-env/<hash>/`. Seed it once:
 
 ```sh
-npx wp-env start      # brings up wp-env briefly just to fill ~/.wp-env
-npx wp-env stop       # you can stop it; the cache remains
+npm install -D @wordpress/env --no-save   # fills ~/.wp-env; not written to package.json
+npx wp-env start                          # brings up wp-env briefly just to fill ~/.wp-env
+npx wp-env stop                           # you can stop it; the cache remains
+npm uninstall @wordpress/env --no-save      # optional: drop from node_modules
 ```
+
+> Using `--no-save` keeps the ~390 transitive packages out of your
+> committed `package.json`/`package-lock.json`. If you'd rather keep
+> `@wordpress/env` listed as a devDependency, omit `--no-save` (then a normal
+> `npm install` re-pulls it). Either way the cache persists after the seed.
 
 Find your cache directory hash:
 
