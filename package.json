@@ -23,8 +23,14 @@
   ],
   "license": "GPL-3.0-or-later",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/afragen/wp-env-opossum"
