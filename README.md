@@ -121,11 +121,15 @@ This scaffolds into the current project:
 `init` prints the cache dir it detected. If it auto-filled, you're done.
 Otherwise:
 
-- **Multiple cache dirs under `~/.wp-env`:** run wp-env's own command to
-  get the exact hash this project uses, then copy it into `.env`:
+- **Multiple cache dirs under `~/.wp-env`:** any cache dir that contains the
+  four subdirs `WordPress/`, `tests-WordPress/`, `WordPress-PHPUnit/`, and
+  `tests-WordPress-PHPUnit/` will work — the plugin itself is mounted from your
+  project (`${PWD}`), not from the cache, so the cache is just generic WordPress
+  core + PHPUnit libs. List them with `ls -d ~/.wp-env/*/` and use any complete
+  one:
   ```sh
-  npx wp-env install-path
-  # e.g. /Users/you/.wp-env/d0e5a894db5a72bb9cfe0514aeee78fb
+  ls -d ~/.wp-env/*/
+  # pick any dir that has WordPress/, tests-WordPress/, *-PHPUnit/ subdirs
   ```
   Set that as `WP_ENV_CACHE_DIR` in `.env`.
 - **No `~/.wp-env` yet:** run `npx wp-env start` once (step 1) to

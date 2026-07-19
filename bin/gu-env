@@ -121,9 +121,9 @@ do_init() {
 		echo "  cache dir   : $cache_dir"
 		echo "    → copy into .env:  WP_ENV_CACHE_DIR=$cache_dir"
 	elif [ -d "$HOME/.wp-env" ]; then
-		echo "  cache dir   : (multiple found under ~/.wp-env — pick this project's)"
-		echo "    → run:  npx wp-env install-path"
-		echo "      (prints the exact ~/.wp-env/<hash> wp-env uses for THIS project)"
+		echo "  cache dir   : (multiple found under ~/.wp-env — any complete one works)"
+		echo "    → run:  ls -d ~/.wp-env/*/"
+		echo "      pick a dir with WordPress/, tests-WordPress/, *-PHPUnit/ subdirs"
 		echo "    → copy that into .env as:  WP_ENV_CACHE_DIR=<path>"
 	else
 		echo "  cache dir   : (not found — ~/.wp-env missing)"
