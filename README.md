@@ -109,20 +109,30 @@ This scaffolds into the current project:
 - **`compose.yaml`** — rendered from a template, with your plugin slug, dev
   theme, and any `tests/fixtures/plugins|themes/*` mounts substituted in.
 - **`docker/`** — the four build contexts (copied from the package).
-- **`.env`** — created if missing, with `WP_ENV_CACHE_DIR=` left blank for you
-  to fill in.
+- **`.env`** — created if missing (or appended to if it already exists, once,
+  idempotently). It **auto-fills `WP_ENV_CACHE_DIR`** when `~/.wp-env`
+  contains exactly one cache directory, and prints the path so you can copy it
+  in. If multiple cache dirs exist, or none, `init` tells you how to find
+  the right one (see step 3).
 - appends `.env` and `.opossum-home/` to `.gitignore` if not present.
 
 ### 3. Point at the cache
 
-Edit the generated `.env` and set `WP_ENV_CACHE_DIR` to the hash from step 1:
+`init` prints the cache dir it detected. If it auto-filled, you're done.
+Otherwise:
 
-```sh
-WP_ENV_CACHE_DIR=/Users/you/.wp-env/d0e5a894db5a72bb9cfe0514aeee78fb
-```
+- **Multiple cache dirs under `~/.wp-env`:** run wp-env's own command to
+  get the exact hash this project uses, then copy it into `.env`:
+  ```sh
+  npx wp-env install-path
+  # e.g. /Users/you/.wp-env/d0e5a894db5a72bb9cfe0514aeee78fb
+  ```
+  Set that as `WP_ENV_CACHE_DIR` in `.env`.
+- **No `~/.wp-env` yet:** run `npx wp-env start` once (step 1) to
+  populate it, then re-run `npx wp-env-opossum init` — it will now
+  auto-fill the path.
 
-That's it. Everything else (ports, host user identity, xdebug host) is
-auto-detected.
+Everything else (ports, host user identity, xdebug host) is auto-detected.
 
 ---
 
@@ -237,6 +247,46 @@ holding 8888/8889/3306/3307. Stop it, or run only one opossum project at a time.
 host LAN IP for DB access rather than container DNS. If you prefer name-based
 discovery, run `sudo container system dns create opossum` once and set
 `WORDPRESS_DB_HOST` to `mysql` / `tests-mysql` in `compose.yaml`.
+
+---
+
+## Publishing
+
+The package is published to npm as `wp-env-opossum` (macOS/Apple-silicon
+only — `os`/`cpu` are constrained in `package.json`). From the package root:
+
+```sh
+npm login          # browser auth (or `npm adduser`)
+npm version patch  # bump (patch/minor/major) — also git-tags
+npm publish        # --access public if your account defaults to restricted
+```
+
+`npm pack --dry-run` previews the exact tarball (whitelisted by the `files`
+field: `bin/`, `docker/`, `templates/`, `README.md`, `package.json`).
+
+---
+
+## Local development (testing an unpublished change)
+
+To use a working copy of the package in another project without publishing:
+
+**Option A — install from a local path:**
+```sh
+cd /path/to/your-plugin
+npm install -D /abs/path/to/wp-env-opossum
+# (after a release: npm install -D wp-env-opossum)
+```
+
+**Option B — `npm link` (edits propagate live):**
+```sh
+cd /path/to/wp-env-opossum && npm link
+cd /path/to/your-plugin && npm link wp-env-opossum
+```
+
+Then `npx wp-env-opossum init` (or `npx gu-env`) resolves to the linked
+copy. If `npm install` reports "up to date" and skips the local package,
+remove `package-lock.json` + `node_modules` and reinstall — a stale lockfile
+pin to a previous `file:` path can block re-resolution.
 
 ---
 
