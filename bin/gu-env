@@ -8,7 +8,7 @@
 # step, translated from `docker compose` to `opossum exec`.
 #
 # Usage:
-#   gu-env init            # scaffold compose.yaml + .env into the current project
+#   gu-env init            # scaffold compose.yaml + .env + docker/; add scripts; gitignore
 #   gu-env up              # build + start + provision (install WordPress)
 #   gu-env down            # stop + remove (pass -v to also drop volumes)
 #   gu-env ps | logs | exec | run | config | ...   # any opossum subcommand

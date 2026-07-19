@@ -54,21 +54,17 @@ In your WordPress plugin/theme project (the one that already has a
 npm install -D wp-env-opossum @wordpress/env
 ```
 
-Then add scripts to `package.json` so `npm test` (etc.) goes through opossum:
+Then install the package (the `init` command below adds the npm scripts for
+you, so you don't need to edit `package.json` manually):
 
-```json
-{
-  "scripts": {
-    "env:start":   "wp-env-opossum up",
-    "env:stop":    "wp-env-opossum down",
-    "env:install": "wp-env-opossum provision",
-    "test":            "wp-env-opossum test",
-    "test:multisite":  "wp-env-opossum test:multisite",
-    "test:coverage":   "wp-env-opossum test:coverage",
-    "test:php80":      "wp-env-opossum test:php80"
-  }
-}
+```sh
+npm install -D wp-env-opossum @wordpress/env
 ```
+
+> If you'd rather set the scripts yourself, the mapping is:
+> `env:start`→`wp-env-opossum up`, `env:stop`→`wp-env-opossum down`,
+> `env:install`→`wp-env-opossum provision`, and `test`/`test:multisite`/
+> `test:coverage`/`test:php80`→`wp-env-opossum test[:suffix]`.
 
 > **Variant 1 (recommended):** keep `@wordpress/env` as a devDependency purely to
 > seed the `~/.wp-env` cache once. This is the simplest, most battle-tested path.
@@ -114,7 +110,12 @@ This scaffolds into the current project:
   contains exactly one cache directory, and prints the path so you can copy it
   in. If multiple cache dirs exist, or none, `init` tells you how to find
   the right one (see step 3).
-- appends `.env` and `.opossum-home/` to `.gitignore` if not present.
+- **`package.json`** — if present, `init` idempotently adds the
+  `env:start`/`env:stop`/`env:install`/`test` scripts (and
+  `test:multisite`/`test:coverage`/`test:php80`) pointing at `wp-env-opossum`,
+  preserving any existing scripts.
+- appends `.env`, `.opossum-home/`, `docker/`, and `compose.yaml` to
+  `.gitignore` if not already present (all are `init` artifacts).
 
 ### 3. Point at the cache
 
@@ -169,7 +170,7 @@ installed site, re-syncs the port in `wp-config.php`, re-activates plugins).
 
 | Command                | Description                                                              |
 | ---------------------- | ------------------------------------------------------------------------ |
-| `init`                 | Scaffold `compose.yaml` + `.env` + `docker/` into the current project.   |
+| `init`                 | Scaffold `compose.yaml` + `.env` + `docker/` into the current project; add `wp-env-opossum` scripts to `package.json`; gitignore the artifacts.   |
 | `up [opossum args]`    | `opossum up` **then** provision (install WordPress).                     |
 | `down [-v]`            | `opossum down` (add `-v` to drop volumes).                               |
 | `provision`            | Re-run only the WordPress install/activation step.                       |
