@@ -1,0 +1,245 @@
+# wp-env-opossum
+
+A drop-in replacement for [`@wordpress/env`](https://www.npmjs.com/package/@wordpress/env)
+that runs the **same** wp-env test environment on Apple's native
+[`container`](https://github.com/apple/container) runtime via
+[opossum](https://github.com/suruseas/opossum) — **no Podman, no Docker Desktop
+VM, and no `sudo`**.
+
+It brings up the familiar two-site WordPress layout (a dev site you can browse
+and a separate tests site that PHPUnit boots against), provisions WordPress
+(`wp core install`, plugin/theme activation, `wp-tests-config.php` generation),
+and runs your PHPUnit suite — all orchestrated by `gu-env`, a small shell
+wrapper around `opossum`.
+
+---
+
+## Why
+
+`@wordpress/env` (wp-env) normally drives `docker compose` (or Podman's
+docker-compatibility shim) on top of a Linux VM. On Apple silicon macOS 26+,
+Apple ships a native container runtime (`container`) that opossum can orchestrate
+with a compose file — eliminating the VM entirely. wp-env itself can't target
+`container`/opossum, so this package reproduces wp-env's environment and
+provisioning steps on top of opossum instead.
+
+**What stays the same:** your `.wp-env.json`, your PHPUnit config, your tests,
+your `npm test` workflow.
+
+**What changes:** the runtime (opossum + `container`) and the orchestration
+script (`gu-env`). The first time, you still run `wp-env start` once to populate
+`~/.wp-env` (WordPress core + PHPUnit libraries); after that, wp-env is no
+longer used at runtime.
+
+---
+
+## Requirements
+
+- **macOS 26+ on Apple silicon**
+- Apple **`container`** running (see <https://github.com/apple/container>)
+- [**opossum**](https://github.com/suruseas/opossum) installed and on your `PATH`
+- **Python 3** (used by `gu-env` for JSON parsing — present on macOS)
+- [`@wordpress/env`](https://www.npmjs.com/package/@wordpress/env) installed
+  **once** in the project, to populate the `~/.wp-env` cache (see below). After
+  the cache exists you no longer run wp-env at runtime.
+
+---
+
+## Installation
+
+In your WordPress plugin/theme project (the one that already has a
+`.wp-env.json`):
+
+```sh
+npm install -D wp-env-opossum @wordpress/env
+```
+
+Then add scripts to `package.json` so `npm test` (etc.) goes through opossum:
+
+```json
+{
+  "scripts": {
+    "env:start":   "wp-env-opossum up",
+    "env:stop":    "wp-env-opossum down",
+    "env:install": "wp-env-opossum provision",
+    "test":            "wp-env-opossum test",
+    "test:multisite":  "wp-env-opossum test:multisite",
+    "test:coverage":   "wp-env-opossum test:coverage",
+    "test:php80":      "wp-env-opossum test:php80"
+  }
+}
+```
+
+> **Variant 1 (recommended):** keep `@wordpress/env` as a devDependency purely to
+> seed the `~/.wp-env` cache once. This is the simplest, most battle-tested path.
+>
+> **Variant 2 (future):** a built-in `install-wp-tests` could fetch WordPress
+> core + PHPUnit libs directly (via `svn`), removing the wp-env dependency
+> entirely. Not yet implemented.
+
+---
+
+## First-time setup
+
+### 1. Populate the wp-env cache (once)
+
+wp-env-opossum reuses wp-env's downloaded WordPress core and PHPUnit libraries,
+cached under `~/.wp-env/<hash>/`. Seed it once:
+
+```sh
+npx wp-env start      # brings up wp-env briefly just to fill ~/.wp-env
+npx wp-env stop       # you can stop it; the cache remains
+```
+
+Find your cache directory hash:
+
+```sh
+ls -d ~/.wp-env/*/
+# e.g. /Users/you/.wp-env/d0e5a894db5a72bb9cfe0514aeee78fb
+```
+
+### 2. Initialize the project
+
+```sh
+npx wp-env-opossum init
+```
+
+This scaffolds into the current project:
+
+- **`compose.yaml`** — rendered from a template, with your plugin slug, dev
+  theme, and any `tests/fixtures/plugins|themes/*` mounts substituted in.
+- **`docker/`** — the four build contexts (copied from the package).
+- **`.env`** — created if missing, with `WP_ENV_CACHE_DIR=` left blank for you
+  to fill in.
+- appends `.env` and `.opossum-home/` to `.gitignore` if not present.
+
+### 3. Point at the cache
+
+Edit the generated `.env` and set `WP_ENV_CACHE_DIR` to the hash from step 1:
+
+```sh
+WP_ENV_CACHE_DIR=/Users/you/.wp-env/d0e5a894db5a72bb9cfe0514aeee78fb
+```
+
+That's it. Everything else (ports, host user identity, xdebug host) is
+auto-detected.
+
+---
+
+## Daily usage
+
+```sh
+npm run env:start        # or: npx wp-env-opossum up
+                          #   → builds images, starts containers, installs WP
+
+# Browse the dev site (real theme, not a fixture stub):
+open http://localhost:8888        # admin: admin / password
+
+npm test                         # run the PHPUnit suite (tests site, :8889)
+npm run test:multisite
+npm run test:coverage            # Xdebug coverage (first-class path)
+npm run test:php80
+
+npm run env:stop                 # npx wp-env-opossum down
+npm run env:stop -- -v           # also drop the database volumes
+```
+
+`gu-env up` is idempotent — re-running it re-provisions safely (skips an already
+installed site, re-syncs the port in `wp-config.php`, re-activates plugins).
+
+---
+
+## Commands
+
+`gu-env` (alias `wp-env-opossum`) supports:
+
+| Command                | Description                                                              |
+| ---------------------- | ------------------------------------------------------------------------ |
+| `init`                 | Scaffold `compose.yaml` + `.env` + `docker/` into the current project.   |
+| `up [opossum args]`    | `opossum up` **then** provision (install WordPress).                     |
+| `down [-v]`            | `opossum down` (add `-v` to drop volumes).                               |
+| `provision`            | Re-run only the WordPress install/activation step.                       |
+| `ps`, `logs`, `exec`, `run`, `config`, `build`, … | Passed straight through to `opossum`. |
+| `test`                 | Run PHPUnit on the tests site (`:8889`).                                 |
+| `test:multisite`       | Run with `WP_MULTISITE=1`.                                              |
+| `test:coverage`        | Run with Xdebug coverage flags.                                         |
+| `test:php80`           | Run the PHP 8.0 variant (if your matrix includes it).                   |
+
+Any unrecognized command is forwarded to `opossum -f compose.yaml`, so you can
+use the full opossum CLI (`gu-env exec cli wp plugin list`, etc.).
+
+---
+
+## Configuration
+
+All optional — sensible defaults apply. Set them in `.env` or the environment.
+
+| Variable                   | Default              | Purpose                                                          |
+| -------------------------- | -------------------- | ---------------------------------------------------------------- |
+| `WP_ENV_CACHE_DIR`         | *(required)*         | Path to wp-env's `~/.wp-env/<hash>` cache.                       |
+| `WP_ENV_PORT`              | `8888`               | Dev site port (matches wp-env).                                  |
+| `WP_ENV_TESTS_PORT`        | `8889`               | Tests site port (matches wp-env).                                |
+| `WP_ENV_MYSQL_PORT`        | `3306`               | Dev MySQL published port.                                        |
+| `WP_ENV_TESTS_MYSQL_PORT`  | `3307`               | Tests MySQL published port.                                      |
+| `WP_PLUGIN_SLUG`           | project dir name     | Plugin directory under `wp-content/plugins` (mount + phpunit path). |
+| `WP_ENV_DEV_THEME`         | `twentytwentyfour`  | Theme activated on the **dev** site so it renders a real page.   |
+| `WP_ENV_FIXTURE_PLUGINS`   | `tests/fixtures/plugins/*` | Space-separated host paths mounted as fixture plugins.      |
+| `WP_ENV_FIXTURE_THEMES`    | `tests/fixtures/themes/*`  | Space-separated host paths mounted as fixture themes.      |
+| `HOST_USERNAME`/`HOST_UID`/`HOST_GID` | auto (`id`) | Container user identity for bind mounts.                     |
+| `XDEBUG_HOST`              | host LAN IP          | IP Xdebug connects back to for coverage debugging.               |
+| `HOST_LAN_IP`              | `ipconfig getifaddr en0` | How app containers reach the DB's published port.            |
+
+> **Concurrent projects:** only one stack can be active at a time on a given
+> host (Apple `container` binds host ports directly, and opossum's
+> per-project namespacing does not isolate host ports — same as two wp-env
+> instances would collide). Stop one (`gu-env down`) before starting another.
+> Because you run one at a time, the standard 8888/8889 ports work for every
+> project.
+
+---
+
+## How it works
+
+- **Two WordPress installs**, each with its own database:
+  - `wordpress` + `cli` + `mysql` → the **dev site** on `:8888`.
+  - `tests-wordpress` + `tests-cli` + `tests-mysql` → the **tests site** on
+    `:8889`, bootstrapped fresh by PHPUnit.
+- **Database reachability without sudo:** app containers connect to the DB via
+  the host LAN IP (`HOST_LAN_IP`) on the mapped ports, avoiding the
+  `sudo container system dns create` that bare-name service discovery would need.
+- **Provisioning mirrors wp-env's `configureWordPress`:** `wp core install`
+  (idempotent), `wp config set` from `.wp-env.json`, plugin/theme activation,
+  and copying wp-env's canonical `wp-tests-config.php` (with the port normalized
+  to `WP_ENV_TESTS_PORT`).
+- **Xdebug** is compiled into the CLI images at build time, so
+  `test:coverage` works without any runtime hook.
+
+---
+
+## Troubleshooting
+
+**`wp-tests-config.php not found`** — the `~/.wp-env` cache is empty. Run
+`npx wp-env start` once (see First-time setup) to populate it, then `gu-env up`.
+
+**Dev site redirects to the wrong port / blank page** — wp-env bakes
+`WP_SITEURL`/`WP_HOME` into the cache `wp-config.php` at install time. `gu-env
+provision` re-syncs these to the current port and activates a real theme
+(`WP_ENV_DEV_THEME`) so the page renders. If a browser cached an old redirect,
+hard-refresh (⌘-Option-R) or clear the site's cache.
+
+**Port already in use** — another stack (or an old Podman/wp-env instance) is
+holding 8888/8889/3306/3307. Stop it, or run only one opossum project at a time.
+
+**`command not found: opossum`** — install opossum and ensure it's on your
+`PATH`. Set `OPOSSUM=/path/to/opossum` if it's elsewhere.
+
+**Containers won't resolve each other by name** — expected; this stack uses the
+host LAN IP for DB access rather than container DNS. If you prefer name-based
+discovery, run `sudo container system dns create opossum` once and set
+`WORDPRESS_DB_HOST` to `mysql` / `tests-mysql` in `compose.yaml`.
+
+---
+
+## License
+
+GPL-3.0-or-later.
