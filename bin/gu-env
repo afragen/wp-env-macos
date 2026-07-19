@@ -111,8 +111,11 @@ do_init() {
 		} >> .env
 	fi
 
-	# Append ignores if not present.
-	grep -q '^.env$' .gitignore 2>/dev/null || printf '\n# wp-env-opossum\n.env\n.opossum-home/\ndocker/\ncompose.yaml\n' >> .gitignore
+	# Append wp-env-opossum ignores if not already present (idempotent per
+	# entry, so re-running init after a partial block still completes it).
+	for entry in '.env' '.opossum-home/' 'docker/' 'compose.yaml'; do
+		grep -qxF "$entry" .gitignore 2>/dev/null || printf '%s\n' "$entry" >> .gitignore
+	done
 
 	echo "gu-env: initialized in $(pwd)"
 	echo "  plugin slug : $WP_PLUGIN_SLUG"
