@@ -1,6 +1,6 @@
 {
   "name": "wp-env-opossum",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A drop-in @wordpress/env replacement that runs the wp-env test environment on Apple's native `container` runtime via opossum — no Podman or Docker Desktop VM, no sudo.",
   "bin": {
     "gu-env": "bin/gu-env",
