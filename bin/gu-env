@@ -36,10 +36,14 @@
 set -e
 
 # --- Locate the package root (where templates/ and docker/ live) ---
-# When installed via npm, $0 is <prefix>/bin/gu-env; templates live one level up.
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# When installed via npm, the bin is symlinked into node_modules/.bin, so $0
+# points at the symlink. Resolve it to the real file first.
+if [ -L "$0" ]; then
+	SCRIPT_DIR="$(cd "$(dirname "$(readlink "$0")")" && pwd)"
+else
+	SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+fi
 PKG_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-# Allow a local checkout to keep templates next to bin/.
 [ -d "$PKG_ROOT/templates" ] || PKG_ROOT="$SCRIPT_DIR"
 
 # --- Host environment (auto-detected; explicit values win) ---
