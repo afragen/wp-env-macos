@@ -17,21 +17,23 @@
 #   gu-env test:multisite / test:coverage / test:php80
 #
 # Requires macOS 26+ / Apple silicon, `container` running, and opossum installed.
-# No sudo needed: the app reaches the database via the host LAN IP
-# (exported as HOST_LAN_IP), not container-name DNS.
-#
+# Database reachability uses container-name DNS: gu-env runs
+# `sudo container system dns create opossum` ONCE (idempotent) on first `up`,
+# after which app containers reach the DB by bare service name (mysql /
+# tests-mysql) — no host LAN IP or published DB ports needed.
+
 # Configuration (all optional; sensible defaults apply):
 #   WP_PLUGIN_SLUG        plugin directory name under wp-content/plugins
 #                         (default: current directory basename)
 #   WP_ENV_CACHE_DIR      path to @wordpress/env's cache (populated by `wp-env
 #                         start`); holds WordPress core + PHPUnit libs
-#   WP_ENV_PORT / WP_ENV_TESTS_PORT / WP_ENV_MYSQL_PORT / WP_ENV_TESTS_MYSQL_PORT
+#   WP_ENV_PORT / WP_ENV_TESTS_PORT
 #   HOST_USERNAME / HOST_UID / HOST_GID   (auto-detected from `id` if unset)
 #   WP_ENV_FIXTURE_PLUGINS / WP_ENV_FIXTURE_THEMES
 #                         space-separated host paths mounted into the containers
 #                         as fixture plugins/themes (e.g. tests/fixtures/.../*)
 #   WP_ENV_DEV_THEME      theme activated on the dev site (default twentytwentyfour)
-#   XDEBUG_HOST           IP xdebug connects back to (default HOST_LAN_IP)
+#   XDEBUG_HOST           IP/host xdebug connects back to (default host.docker.internal)
 
 set -e
 
@@ -47,11 +49,10 @@ PKG_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 [ -d "$PKG_ROOT/templates" ] || PKG_ROOT="$SCRIPT_DIR"
 
 # --- Host environment (auto-detected; explicit values win) ---
-export HOST_LAN_IP="${HOST_LAN_IP:-$(ipconfig getifaddr en0 2>/dev/null || echo 127.0.0.1)}"
 export HOST_USERNAME="${HOST_USERNAME:-$(id -un)}"
 export HOST_UID="${HOST_UID:-$(id -u)}"
 export HOST_GID="${HOST_GID:-$(id -g)}"
-export XDEBUG_HOST="${XDEBUG_HOST:-$HOST_LAN_IP}"
+export XDEBUG_HOST="${XDEBUG_HOST:-host.docker.internal}"
 
 OPOSSUM="${OPOSSUM:-opossum}"
 COMPOSE="${COMPOSE:-compose.yaml}"
@@ -62,6 +63,16 @@ WP_PLUGIN_SLUG="${WP_PLUGIN_SLUG:-$PROJECT_NAME}"
 DEV_PORT="${WP_ENV_PORT:-8888}"
 TESTS_PORT="${WP_ENV_TESTS_PORT:-8889}"
 DEV_THEME="${WP_ENV_DEV_THEME:-twentytwentyfour}"
+
+# One-time DNS setup so bare service names (mysql, tests-mysql) resolve across
+# the opossum-managed containers. `container system dns create opossum` is
+# idempotent; guard the sudo so it only runs when the domain isn't registered.
+ensure_dns() {
+	if ! container system dns 2>/dev/null | grep -q opossum; then
+		echo "gu-env: setting up container DNS (one-time, requires sudo)…"
+		sudo container system dns create opossum || true
+	fi
+}
 
 # --- `init`: scaffold compose.yaml + .env into the current project ---
 do_init() {
@@ -204,10 +215,10 @@ WP_ENV_CACHE_DIR=${WP_ENV_CACHE_DIR:-$(detect_cache_dir)}
 # HOST_GID=
 
 # Published ports (defaults match @wordpress/env: 8888 dev, 8889 tests).
+# The database is reached by container-name DNS (mysql / tests-mysql), so no
+# DB ports are published.
 WP_ENV_PORT=8888
 WP_ENV_TESTS_PORT=8889
-WP_ENV_MYSQL_PORT=3306
-WP_ENV_TESTS_MYSQL_PORT=3307
 
 # Plugin directory name under wp-content/plugins (default: project dir name).
 # WP_PLUGIN_SLUG=$PROJECT_NAME
@@ -310,6 +321,7 @@ case "$1" in
 		# ensure the container home dirs exist (pure runtime scratch space;
 		# gitignored, regenerated empty on clone).
 		mkdir -p .opossum-home/user .opossum-home/tests-user
+		ensure_dns
 		"$OPOSSUM" -f "$COMPOSE" up "${@:2}"
 		provision
 		;;

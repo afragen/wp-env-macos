@@ -210,15 +210,12 @@ All optional — sensible defaults apply. Set them in `.env` or the environment.
 | `WP_ENV_CACHE_DIR`         | *(required)*         | Path to wp-env's `~/.wp-env/<hash>` cache.                       |
 | `WP_ENV_PORT`              | `8888`               | Dev site port (matches wp-env).                                  |
 | `WP_ENV_TESTS_PORT`        | `8889`               | Tests site port (matches wp-env).                                |
-| `WP_ENV_MYSQL_PORT`        | `3306`               | Dev MySQL published port.                                        |
-| `WP_ENV_TESTS_MYSQL_PORT`  | `3307`               | Tests MySQL published port.                                      |
 | `WP_PLUGIN_SLUG`           | project dir name     | Plugin directory under `wp-content/plugins` (mount + phpunit path). |
 | `WP_ENV_DEV_THEME`         | `twentytwentyfour`  | Theme activated on the **dev** site so it renders a real page.   |
 | `WP_ENV_FIXTURE_PLUGINS`   | `tests/fixtures/plugins/*` | Space-separated host paths mounted as fixture plugins.      |
 | `WP_ENV_FIXTURE_THEMES`    | `tests/fixtures/themes/*`  | Space-separated host paths mounted as fixture themes.      |
 | `HOST_USERNAME`/`HOST_UID`/`HOST_GID` | auto (`id`) | Container user identity for bind mounts.                     |
-| `XDEBUG_HOST`              | host LAN IP          | IP Xdebug connects back to for coverage debugging.               |
-| `HOST_LAN_IP`              | `ipconfig getifaddr en0` | How app containers reach the DB's published port.            |
+| `XDEBUG_HOST`              | `host.docker.internal` | Host Xdebug connects back to for coverage debugging.          |
 
 > **Concurrent projects:** only one stack can be active at a time on a given
 > host (Apple `container` binds host ports directly, and opossum's
@@ -235,9 +232,11 @@ All optional — sensible defaults apply. Set them in `.env` or the environment.
   - `wordpress` + `cli` + `mysql` → the **dev site** on `:8888`.
   - `tests-wordpress` + `tests-cli` + `tests-mysql` → the **tests site** on
     `:8889`, bootstrapped fresh by PHPUnit.
-- **Database reachability without sudo:** app containers connect to the DB via
-  the host LAN IP (`HOST_LAN_IP`) on the mapped ports, avoiding the
-  `sudo container system dns create` that bare-name service discovery would need.
+- **Database reachability via container DNS:** `gu-env up` runs
+  `sudo container system dns create opossum` once (idempotent) so the app
+  containers reach the database by its bare service name (`mysql` /
+  `tests-mysql`) on the internal port 3306 — no host LAN IP and no published
+  DB ports required.
 - **Provisioning mirrors wp-env's `configureWordPress`:** `wp core install`
   (idempotent), `wp config set` from `.wp-env.json`, plugin/theme activation,
   and copying wp-env's canonical `wp-tests-config.php` (with the port normalized

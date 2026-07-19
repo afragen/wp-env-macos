@@ -8,17 +8,15 @@
 # Values are interpolated from .env. WordPress core + PHPUnit libs come from
 # @wordpress/env's cache (WP_ENV_CACHE_DIR, populated by `wp-env start` once).
 #
-# Service discovery: the app reaches the database via the host LAN IP
-# (HOST_LAN_IP, exported by gu-env) on the mapped DB ports — no sudo / no
-# container-name DNS required. For name-based discovery instead, run
-# `sudo container system dns create opossum` once and set WORDPRESS_DB_HOST to
-# the bare service name (mysql / tests-mysql).
+# Database reachability uses container-name DNS: run
+# `sudo container system dns create opossum` ONCE (gu-env does this
+# automatically on first `up` if missing). After that, the app containers
+# reach the database by its bare service name (mysql / tests-mysql) on the
+# internal port 3306 — no host LAN IP and no published DB ports needed.
 
 services:
   mysql:
     image: 'mariadb:lts'
-    ports:
-      - '${WP_ENV_MYSQL_PORT:-3306}:3306'
     environment:
       MYSQL_ROOT_HOST: '%'
       MYSQL_ROOT_PASSWORD: password
@@ -34,8 +32,6 @@ services:
 
   tests-mysql:
     image: 'mariadb:lts'
-    ports:
-      - '${WP_ENV_TESTS_MYSQL_PORT:-3307}:3306'
     environment:
       MYSQL_ROOT_HOST: '%'
       MYSQL_ROOT_PASSWORD: password
@@ -68,8 +64,7 @@ services:
       WORDPRESS_DB_USER: root
       WORDPRESS_DB_PASSWORD: password
       WORDPRESS_DB_NAME: wordpress
-      WORDPRESS_DB_HOST: '${HOST_LAN_IP}:${WP_ENV_MYSQL_PORT}'
-      WORDPRESS_DB_PORT: '${WP_ENV_MYSQL_PORT:-3306}'
+      WORDPRESS_DB_HOST: 'mysql'
       WP_TESTS_DIR: /wordpress-phpunit
     volumes:
       - '${WP_ENV_CACHE_DIR}/WordPress:/var/www/html'
@@ -98,8 +93,7 @@ services:
       WORDPRESS_DB_USER: root
       WORDPRESS_DB_PASSWORD: password
       WORDPRESS_DB_NAME: tests-wordpress
-      WORDPRESS_DB_HOST: '${HOST_LAN_IP}:${WP_ENV_TESTS_MYSQL_PORT}'
-      WORDPRESS_DB_PORT: '${WP_ENV_TESTS_MYSQL_PORT:-3307}'
+      WORDPRESS_DB_HOST: 'tests-mysql'
       WP_TESTS_DIR: /wordpress-phpunit
     volumes:
       - '${WP_ENV_CACHE_DIR}/tests-WordPress:/var/www/html'
@@ -132,8 +126,7 @@ services:
       WORDPRESS_DB_USER: root
       WORDPRESS_DB_PASSWORD: password
       WORDPRESS_DB_NAME: wordpress
-      WORDPRESS_DB_HOST: '${HOST_LAN_IP}:${WP_ENV_MYSQL_PORT}'
-      WORDPRESS_DB_PORT: '${WP_ENV_MYSQL_PORT:-3306}'
+      WORDPRESS_DB_HOST: 'mysql'
       WP_TESTS_DIR: /wordpress-phpunit
 
   tests-cli:
@@ -159,8 +152,7 @@ services:
       WORDPRESS_DB_USER: root
       WORDPRESS_DB_PASSWORD: password
       WORDPRESS_DB_NAME: tests-wordpress
-      WORDPRESS_DB_HOST: '${HOST_LAN_IP}:${WP_ENV_TESTS_MYSQL_PORT}'
-      WORDPRESS_DB_PORT: '${WP_ENV_TESTS_MYSQL_PORT:-3307}'
+      WORDPRESS_DB_HOST: 'tests-mysql'
       WP_TESTS_DIR: /wordpress-phpunit
 
 volumes:
