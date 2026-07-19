@@ -4,7 +4,7 @@ A drop-in replacement for [`@wordpress/env`](https://www.npmjs.com/package/@word
 that runs the **same** wp-env test environment on Apple's native
 [`container`](https://github.com/apple/container) runtime via
 [opossum](https://github.com/suruseas/opossum) — **no Podman, no Docker Desktop
-VM, and no `sudo`**.
+VM**. (One `sudo` is needed, once, to set up container DNS — see Requirements.)
 
 It brings up the familiar two-site WordPress layout (a dev site you can browse
 and a separate tests site that PHPUnit boots against), provisions WordPress
@@ -36,8 +36,22 @@ longer used at runtime.
 ## Requirements
 
 - **macOS 26+ on Apple silicon**
-- Apple **`container`** running (see <https://github.com/apple/container>)
-- [**opossum**](https://github.com/suruseas/opossum) installed and on your `PATH`
+- **Homebrew** (used to install the runtime; see <https://brew.sh>)
+- Apple **`container`**, installed and started via Homebrew:
+  ```sh
+  brew install container
+  brew services start container
+  ```
+- [**opossum**](https://github.com/suruseas/opossum), installed via Homebrew:
+  ```sh
+  brew install suruseas/opossum/opossum
+  ```
+- **Container DNS** — set up once so containers resolve each other by bare
+  service name (this persists across restarts):
+  ```sh
+  sudo container system dns create opossum
+  ```
+  (`gu-env up` also runs this automatically on first start if it's missing.)
 - **Python 3** (used by `gu-env` for JSON parsing — present on macOS)
 - [`@wordpress/env`](https://www.npmjs.com/package/@wordpress/env) installed
   **once** in the project, to populate the `~/.wp-env` cache (see below). After
