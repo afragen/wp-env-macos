@@ -252,6 +252,10 @@ run_tests() {
 case "$1" in
 	init) do_init ;;
 	up)
+		# Apple `container`/opossum won't auto-create bind-mount sources, so
+		# ensure the container home dirs exist (pure runtime scratch space;
+		# gitignored, regenerated empty on clone).
+		mkdir -p .opossum-home/user .opossum-home/tests-user
 		"$OPOSSUM" -f "$COMPOSE" up "${@:2}"
 		provision
 		;;
