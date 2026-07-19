@@ -1,0 +1,32 @@
+{
+  "name": "wp-env-opossum",
+  "version": "1.0.0",
+  "description": "A drop-in @wordpress/env replacement that runs the wp-env test environment on Apple's native `container` runtime via opossum — no Podman or Docker Desktop VM, no sudo.",
+  "bin": {
+    "gu-env": "bin/gu-env",
+    "wp-env-opossum": "bin/gu-env"
+  },
+  "files": [
+    "bin/",
+    "templates/",
+    "docker/",
+    "README.md"
+  ],
+  "keywords": [
+    "wordpress",
+    "wp-env",
+    "testing",
+    "apple-container",
+    "opossum",
+    "phpunit",
+    "container"
+  ],
+  "license": "GPL-3.0-or-later",
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/afragen/wp-env-opossum"
+  }
+}
