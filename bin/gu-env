@@ -111,7 +111,22 @@ do_init() {
 	echo "gu-env: initialized in $(pwd)"
 	echo "  plugin slug : $WP_PLUGIN_SLUG"
 	echo "  fixtures    : ${WP_ENV_FIXTURE_PLUGINS:-none} ${WP_ENV_FIXTURE_THEMES:+| $WP_ENV_FIXTURE_THEMES}"
-	echo "  next steps  : set WP_ENV_CACHE_DIR in .env (run 'wp-env start' once to populate it), then 'gu-env up'"
+	# Surface the wp-env cache dir so the user can paste it into .env.
+	cache_dir="$(detect_cache_dir || true)"
+	if [ -n "$cache_dir" ]; then
+		echo "  cache dir   : $cache_dir"
+		echo "    → copy into .env:  WP_ENV_CACHE_DIR=$cache_dir"
+	elif [ -d "$HOME/.wp-env" ]; then
+		echo "  cache dir   : (multiple found under ~/.wp-env — pick the one for this project)"
+		list_cache_dirs | while read -r d; do
+			echo "      $d"
+		done
+		echo "    → copy the right one into .env as:  WP_ENV_CACHE_DIR=<path>"
+	else
+		echo "  cache dir   : (not found — ~/.wp-env missing)"
+		echo "    → run 'wp-env start' once to populate it, then re-run 'gu-env init'"
+	fi
+	echo "  next steps  : set WP_ENV_CACHE_DIR in .env, then 'gu-env up'"
 }
 
 render_compose() {
@@ -138,15 +153,19 @@ sys.stdout.write(s)
 PY
 }
 
+# List all wp-env cache subdirs (one per project), newline-separated.
+list_cache_dirs() {
+	local cache_root="$HOME/.wp-env"
+	[ -d "$cache_root" ] || return 0
+	find "$cache_root" -maxdepth 1 -type d ! -name "$(basename "$cache_root")" 2>/dev/null || true
+}
+
 # Detect the wp-env cache dir: if ~/.wp-env has exactly one subdirectory,
 # use it; otherwise emit nothing (caller leaves WP_ENV_CACHE_DIR blank).
 detect_cache_dir() {
-	local cache_root="$HOME/.wp-env"
-	[ -d "$cache_root" ] || return 0
-	local dirs
-	dirs="$(find "$cache_root" -maxdepth 1 -type d -name '*' ! -name "$(basename "$cache_root")" 2>/dev/null)"
-	local count
-	count="$(printf '%s\n' $dirs | grep -c .)"
+	local dirs count
+	dirs="$(list_cache_dirs)"
+	count="$(printf '%s\n' $dirs | grep -c . || true)"
 	[ "$count" = "1" ] && printf '%s' "$dirs"
 }
 
