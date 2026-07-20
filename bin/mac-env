@@ -247,7 +247,7 @@ start_spinner() {
 	( set +x
 	  set -- '⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏'
 	  local i=0 g
-	  trap '' TERM
+	  trap 'exit 0' TERM
 	  while true; do
 		eval "g=\${$((i % 10 + 1))}"
 		printf '\r%s %s' "$g" "$_SPINNER_LABEL"
@@ -261,6 +261,9 @@ stop_spinner() {
 	[ -n "$_SPINNER_PID" ] && kill "$_SPINNER_PID" 2>/dev/null && wait "$_SPINNER_PID" 2>/dev/null
 	_SPINNER_PID=""
 	[ -t 1 ] && printf '\r\033[K'
+	# Always succeed: the final `[ -t 1 ]` is false in non-TTY and would
+	# otherwise make `set -e` abort the caller.
+	return 0
 }
 
 # --- Variant 2: git-based WordPress core + PHPUnit test-lib fetch ---
@@ -296,26 +299,49 @@ sync_wp_env_cache() {
 	# --- WordPress/WordPress (release core) -> WordPress/ + tests-WordPress/ ---
 	start_spinner "cloning WordPress core ($tag)…"
 	if [ -d "$src_wp/.git" ]; then
-		git -C "$src_wp" fetch --tags >/dev/null 2>&1 || true
-		if [ "$tag" = "trunk" ]; then git -C "$src_wp" pull --ff-only >/dev/null 2>&1 || true
-		else git -C "$src_wp" checkout "$tag" >/dev/null 2>&1 || true; fi
+		# Skip the network fetch + rsync when the clone already sits at $tag
+		# (e.g. a re-pull of an unchanged pinned version) — makes re-runs fast.
+		local at_wp="$tag"
+		[ "$tag" != "trunk" ] && at_wp="$(git -C "$src_wp" rev-parse "$tag" 2>/dev/null || true)"
+		local cur_wp="$(git -C "$src_wp" rev-parse HEAD 2>/dev/null || true)"
+		if [ -n "$at_wp" ] && [ "$at_wp" = "$cur_wp" ]; then
+			git -C "$src_wp" checkout -q "$tag" >/dev/null 2>&1 || true
+		elif [ "$tag" = "trunk" ]; then
+			git -C "$src_wp" fetch --tags >/dev/null 2>&1 || true
+			git -C "$src_wp" pull --ff-only >/dev/null 2>&1 || true
+		else
+			git -C "$src_wp" fetch --tags >/dev/null 2>&1 || true
+			git -C "$src_wp" checkout "$tag" >/dev/null 2>&1 || true
+		fi
 	else
 		rm -rf "$src_wp"
 		git clone --depth 1 --branch "$tag" https://github.com/WordPress/WordPress.git "$src_wp" >/dev/null 2>&1
 	fi
 	mkdir -p "$cache_dir/WordPress" "$cache_dir/tests-WordPress"
 	stop_spinner
-	start_spinner "copying WordPress core into cache…"
-	rsync -a --delete --exclude=.git "$src_wp/" "$cache_dir/WordPress/"
-	rsync -a --delete --exclude=.git "$src_wp/" "$cache_dir/tests-WordPress/"
-	stop_spinner
+	# Only re-copy when the source actually changed (avoids a full-tree rsync walk).
+	if [ -z "$WP_ENV_SKIP_RSYNC" ]; then
+		start_spinner "copying WordPress core into cache…"
+		rsync -a --delete --exclude=.git "$src_wp/" "$cache_dir/WordPress/"
+		rsync -a --delete --exclude=.git "$src_wp/" "$cache_dir/tests-WordPress/"
+		stop_spinner
+	fi
 
 	# --- WordPress/wordpress-develop (test framework) -> *-PHPUnit/tests/phpunit/ ---
 	start_spinner "cloning wordpress-develop ($tag)…"
 	if [ -d "$src_dev/.git" ]; then
-		git -C "$src_dev" fetch --tags >/dev/null 2>&1 || true
-		if [ "$tag" = "trunk" ]; then git -C "$src_dev" pull --ff-only >/dev/null 2>&1 || true
-		else git -C "$src_dev" checkout "$tag" >/dev/null 2>&1 || true; fi
+		local at_dev="$tag"
+		[ "$tag" != "trunk" ] && at_dev="$(git -C "$src_dev" rev-parse "$tag" 2>/dev/null || true)"
+		local cur_dev="$(git -C "$src_dev" rev-parse HEAD 2>/dev/null || true)"
+		if [ -n "$at_dev" ] && [ "$at_dev" = "$cur_dev" ]; then
+			git -C "$src_dev" checkout -q "$tag" >/dev/null 2>&1 || true
+		elif [ "$tag" = "trunk" ]; then
+			git -C "$src_dev" fetch --tags >/dev/null 2>&1 || true
+			git -C "$src_dev" pull --ff-only >/dev/null 2>&1 || true
+		else
+			git -C "$src_dev" fetch --tags >/dev/null 2>&1 || true
+			git -C "$src_dev" checkout "$tag" >/dev/null 2>&1 || true
+		fi
 	else
 		rm -rf "$src_dev"
 		git clone --depth 1 --branch "$tag" https://github.com/WordPress/wordpress-develop.git "$src_dev" >/dev/null 2>&1
@@ -356,7 +382,9 @@ install_wp_tests() {
 	# If the clone already exists, re-pull in place instead of re-cloning.
 	if [ -d "$cache_dir/.src-wordpress/.git" ]; then
 		echo "mac-env: cache already seeded at $cache_dir — re-pulling (use 'mac-env fetch' next time)…"
-		fetch_wp_env_cache "$cache_dir"
+		# Skip the tree rsync so a re-pull of an unchanged pinned version is
+		# near-instant; `fetch` does the full rsync when a real refresh is wanted.
+		WP_ENV_SKIP_RSYNC=1 fetch_wp_env_cache "$cache_dir"
 		return $?
 	fi
 
