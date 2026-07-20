@@ -355,8 +355,11 @@ sync_wp_env_cache() {
 		mkdir -p "$dst/tests/phpunit/includes"
 		rsync -a --delete "$src_dev/tests/phpunit/includes/" "$dst/tests/phpunit/includes/"
 		cp "$src_dev/wp-tests-config-sample.php" "$dst/tests/phpunit/wp-tests-config.php" 2>/dev/null || true
-		# Rewrite the test config the same way install-wp-tests.sh does.
-		sed -i '' "s:dirname( __FILE__ ) . '/src/':'$cache_dir/tests-WordPress/':" "$dst/tests/phpunit/wp-tests-config.php"
+		# Rewrite the test config the same way install-wp-tests.sh does. The
+		# config is mounted into the container at /wordpress-phpunit, where the
+		# WordPress core (tests-WordPress) is bind-mounted at /var/www/html — so
+		# ABSPATH must point at the in-container path, not the host cache dir.
+		sed -i '' "s:dirname( __FILE__ ) . '/src/':/var/www/html/:" "$dst/tests/phpunit/wp-tests-config.php"
 		sed -i '' "s/youremptytestdbnamehere/tests-wordpress/" "$dst/tests/phpunit/wp-tests-config.php"
 		sed -i '' "s/yourusernamehere/root/" "$dst/tests/phpunit/wp-tests-config.php"
 		sed -i '' "s/yourpasswordhere/password/" "$dst/tests/phpunit/wp-tests-config.php"
