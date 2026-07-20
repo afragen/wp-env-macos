@@ -231,6 +231,35 @@ render_env() {
 	render_env_body
 }
 
+# --- Animated progress spinner (TTY only) ---
+# Usage:  start_spinner "cloning WordPress core…"
+#         …slow work…
+#         stop_spinner
+# The spinner only animates when stdout is a terminal (skipped for pipes/CI).
+_SPINNER_PID=""
+_SPINNER_LABEL=""
+start_spinner() {
+	_SPINNER_LABEL="$1"
+	[ -t 1 ] || return 0
+	printf '%s' "$_SPINNER_LABEL"
+	( set +x
+	  local frames='|/-\'
+	  local i=0
+	  trap '' TERM
+	  while true; do
+		printf '\r%s %s' "$_SPINNER_LABEL" "$(printf '%s' "$frames" | cut -c $((i % 4 + 1)))"
+		i=$((i + 1))
+		sleep 0.1
+	  done
+	) &
+	_SPINNER_PID=$!
+}
+stop_spinner() {
+	[ -n "$_SPINNER_PID" ] && kill "$_SPINNER_PID" 2>/dev/null && wait "$_SPINNER_PID" 2>/dev/null
+	_SPINNER_PID=""
+	[ -t 1 ] && printf '\r\033[K'
+}
+
 # --- Variant 2: git-based WordPress core + PHPUnit test-lib fetch ---
 
 # Resolve a wp-version argument into a git ref.
@@ -262,6 +291,7 @@ sync_wp_env_cache() {
 	src_dev="$cache_dir/.src-develop"
 
 	# --- WordPress/WordPress (release core) -> WordPress/ + tests-WordPress/ ---
+	start_spinner "cloning WordPress core ($tag)…"
 	if [ -d "$src_wp/.git" ]; then
 		git -C "$src_wp" fetch --tags >/dev/null 2>&1 || true
 		if [ "$tag" = "trunk" ]; then git -C "$src_wp" pull --ff-only >/dev/null 2>&1 || true
@@ -271,10 +301,14 @@ sync_wp_env_cache() {
 		git clone --depth 1 --branch "$tag" https://github.com/WordPress/WordPress.git "$src_wp" >/dev/null 2>&1
 	fi
 	mkdir -p "$cache_dir/WordPress" "$cache_dir/tests-WordPress"
+	stop_spinner
+	start_spinner "copying WordPress core into cache…"
 	rsync -a --delete --exclude=.git "$src_wp/" "$cache_dir/WordPress/"
 	rsync -a --delete --exclude=.git "$src_wp/" "$cache_dir/tests-WordPress/"
+	stop_spinner
 
 	# --- WordPress/wordpress-develop (test framework) -> *-PHPUnit/tests/phpunit/ ---
+	start_spinner "cloning wordpress-develop ($tag)…"
 	if [ -d "$src_dev/.git" ]; then
 		git -C "$src_dev" fetch --tags >/dev/null 2>&1 || true
 		if [ "$tag" = "trunk" ]; then git -C "$src_dev" pull --ff-only >/dev/null 2>&1 || true
@@ -283,6 +317,8 @@ sync_wp_env_cache() {
 		rm -rf "$src_dev"
 		git clone --depth 1 --branch "$tag" https://github.com/WordPress/wordpress-develop.git "$src_dev" >/dev/null 2>&1
 	fi
+	stop_spinner
+	start_spinner "arranging PHPUnit libs + wp-tests-config.php…"
 	for dst in "$cache_dir/WordPress-PHPUnit" "$cache_dir/tests-WordPress-PHPUnit"; do
 		mkdir -p "$dst/tests/phpunit/includes"
 		rsync -a --delete "$src_dev/tests/phpunit/includes/" "$dst/tests/phpunit/includes/"
@@ -294,6 +330,7 @@ sync_wp_env_cache() {
 		sed -i '' "s/yourpasswordhere/password/" "$dst/tests/phpunit/wp-tests-config.php"
 		sed -i '' "s|localhost|tests-mysql|" "$dst/tests/phpunit/wp-tests-config.php"
 	done
+	stop_spinner
 }
 
 # Seed the cache from git (replaces the wp-env dependency).
@@ -313,7 +350,13 @@ install_wp_tests() {
 	fi
 	mkdir -p "$cache_dir"
 
-	echo "mac-env: cloning WordPress ($tag) into $cache_dir …"
+	# If the clone already exists, re-pull in place instead of re-cloning.
+	if [ -d "$cache_dir/.src-wordpress/.git" ]; then
+		echo "mac-env: cache already seeded at $cache_dir — re-pulling (use 'mac-env fetch' next time)…"
+		fetch_wp_env_cache "$cache_dir"
+		return $?
+	fi
+
 	sync_wp_env_cache "$cache_dir" "$tag"
 	printf '%s' "$tag" > "$cache_dir/.wp-env-version"
 
@@ -323,11 +366,13 @@ install_wp_tests() {
 }
 
 # Re-pull the pinned version in place (the git-fetch equivalent).
+# Optional $1: explicit cache dir (used when install-wp-tests re-pulls an
+# existing clone). Falls back to WP_ENV_CACHE_DIR / detect_cache_dir.
 fetch_wp_env_cache() {
-	local cache_dir=""
-	if [ -n "$WP_ENV_CACHE_DIR" ] && [ -d "$WP_ENV_CACHE_DIR" ]; then
+	local cache_dir="${1:-}"
+	if [ -z "$cache_dir" ] && [ -n "$WP_ENV_CACHE_DIR" ] && [ -d "$WP_ENV_CACHE_DIR" ]; then
 		cache_dir="$WP_ENV_CACHE_DIR"
-	else
+	elif [ -z "$cache_dir" ]; then
 		cache_dir="$(detect_cache_dir || true)"
 	fi
 	if [ -z "$cache_dir" ] || [ ! -d "$cache_dir" ]; then

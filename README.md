@@ -309,6 +309,12 @@ What it does:
    host `tests-mysql`).
 4. Pins the version in `<cache>/.wp-env-version` and prints the cache path.
 
+Long-running steps (git clones, rsyncs) show an animated spinner with the
+current phase when run in a terminal (suppressed for pipes/CI). If the cache is
+already seeded, re-running `install-wp-tests` re-pulls in place (a `git fetch`
++ rsync) rather than re-cloning — equivalent to `mac-env fetch` — and prints a
+note suggesting `fetch` next time.
+
 After seeding, `mac-env init` auto-fills `WP_ENV_CACHE_DIR`, and `mac-env up`
 runs the stack with **zero `@wordpress/env` dependency**.
 
