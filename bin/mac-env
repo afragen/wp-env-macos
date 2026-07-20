@@ -496,22 +496,15 @@ $line" .env
 
 # Interactive: pick a complete cache dir and write it to .env.
 # Non-TTY, --list, or no complete dirs fall back to the plain verbose listing.
+# Renders the choices as selectable [ ]/[x] checkboxes (radio-style: only one
+# can be active at a time); typing a number toggles it, Enter confirms, 0
+# cancels. Pure POSIX sh — no external dependencies.
 cache_list() {
 	if [ ! -t 1 ] || [ "$1" = "--list" ]; then
 		list_cache_dirs_verbose
 		return 0
 	fi
 
-	# Accumulate complete dirs in a flat newline-delimited var (POSIX sh has no
-	# arrays); index later with sed -n "${choice}p".
-	local menu="" n=0 d
-	for d in $(list_cache_dirs); do
-		if cache_dir_is_complete "$d"; then
-			n=$((n + 1))
-			menu="$menu$n
-$d"
-		fi
-	done
 	# Accumulate complete dirs as a plain newline-delimited list (POSIX sh has
 	# no arrays); index later with sed -n "${n}p".
 	local dirs="" n=0 d
@@ -529,27 +522,51 @@ $d"
 		return 1
 	fi
 
-	printf 'Select a wp-env cache dir for WP_ENV_CACHE_DIR:\n'
-	local i=1
-	while [ "$i" -le "$n" ]; do
-		printf '  %2d) %s\n' "$i" "$(printf '%s' "$dirs" | sed -n "${i}p")"
-		i=$((i + 1))
+	# Render the filterable menu with [ ]/[x] markers. Clear the screen so the
+	# list re-draws cleanly on each toggle (ANSI escape, no external deps).
+	print_cache_menu() {
+		local sel="$1" i=1
+		printf '\033[2J\033[H'
+		printf 'Select a wp-env cache dir for WP_ENV_CACHE_DIR:\n'
+		while [ "$i" -le "$n" ]; do
+			local mark="[ ]"
+			[ "$i" = "$sel" ] && mark="[x]"
+			printf '  %s %2d) %s\n' "$mark" "$i" "$(printf '%s' "$dirs" | sed -n "${i}p")"
+			i=$((i + 1))
+		done
+	}
+
+	local selected=0 choice
+	while true; do
+		print_cache_menu "$selected"
+		printf 'Toggle number (Enter to confirm, 0 to cancel): '
+		read -r choice
+		# Empty input confirms the current selection.
+		[ -z "$choice" ] && break
+		[ "$choice" = "0" ] && return 0
+		# Validate the choice is numeric and within range.
+		case "$choice" in
+			*[!0-9]*) echo "mac-env: invalid selection" >&2; continue ;;
+		esac
+		if [ "$choice" -lt 1 ] || [ "$choice" -gt "$n" ]; then
+			echo "mac-env: invalid selection" >&2
+			continue
+		fi
+		# Radio-style toggle: re-typing the active choice clears it.
+		if [ "$choice" = "$selected" ]; then
+			selected=0
+		else
+			selected="$choice"
+		fi
 	done
 
-	printf 'Enter number (or 0 to cancel): '
-	read -r choice
-	[ "$choice" = "0" ] && return 0
-	# Validate the choice is within range (and numeric).
-	case "$choice" in
-		''|*[!0-9]*) echo "mac-env: invalid selection" >&2; return 1 ;;
-	esac
-	if [ "$choice" -lt 1 ] || [ "$choice" -gt "$n" ]; then
-		echo "mac-env: invalid selection" >&2
-		return 1
+	if [ "$selected" -eq 0 ]; then
+		echo "mac-env: no selection made"
+		return 0
 	fi
 
 	local chosen
-	chosen="$(printf '%s' "$dirs" | sed -n "${choice}p")"
+	chosen="$(printf '%s' "$dirs" | sed -n "${selected}p")"
 	[ -n "$chosen" ] || { echo "mac-env: invalid selection" >&2; return 1; }
 
 	write_cache_dir_to_env "$chosen"
