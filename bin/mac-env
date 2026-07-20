@@ -357,13 +357,15 @@ sync_wp_env_cache() {
 		cp "$src_dev/wp-tests-config-sample.php" "$dst/tests/phpunit/wp-tests-config.php" 2>/dev/null || true
 		# Rewrite the test config the same way install-wp-tests.sh does. The
 		# config is mounted into the container at /wordpress-phpunit, where the
-		# WordPress core (tests-WordPress) is bind-mounted at /var/www/html — so
-		# ABSPATH must point at the in-container path, not the host cache dir.
+		# WordPress core (tests-WordPress) is bind-mounted at /var/www/html.
+		# ABSPATH and WP_LANG_DIR must point at the in-container paths, not
+		# the host cache dir.
 		sed -i '' "s:dirname( __FILE__ ) . '/src/':'/var/www/html/':" "$dst/tests/phpunit/wp-tests-config.php"
 		sed -i '' "s/youremptytestdbnamehere/tests-wordpress/" "$dst/tests/phpunit/wp-tests-config.php"
 		sed -i '' "s/yourusernamehere/root/" "$dst/tests/phpunit/wp-tests-config.php"
 		sed -i '' "s/yourpasswordhere/password/" "$dst/tests/phpunit/wp-tests-config.php"
 		sed -i '' "s|localhost|tests-mysql|" "$dst/tests/phpunit/wp-tests-config.php"
+		inject_test_constants "$dst/tests/phpunit/wp-tests-config.php"
 	done
 	stop_spinner
 }
@@ -577,12 +579,36 @@ First run: `mac-env install-wp-tests`, then `mac-env init`, then `mac-env up`.
 EOF
 }
 
+# Ensure the harness wp-tests-config.php points ABSPATH and WP_LANG_DIR at the
+# in-container paths (not the host cache dir). WordPress is bind-mounted at
+# /var/www/html inside the container, and the language dir must be defined or
+# wp_get_installed_translations() short-circuits and returns [] (breaking
+# coverage of the installed-translation branch). Idempotent: rewrites whatever
+# value is currently present so re-provisioning is safe.
+inject_test_constants() {
+	local cfg="$1"
+	[ -f "$cfg" ] || return 0
+	# ABSPATH: in-container WordPress root.
+	sed -i '' -E "s#^([ ]*)define\( *'ABSPATH'.*#\\1define( 'ABSPATH', '/var/www/html/' );#" "$cfg"
+	# WP_LANG_DIR: in-container language dir.
+	sed -i '' -E "s#^([ ]*)define\( *'WP_LANG_DIR'.*#\\1define( 'WP_LANG_DIR', '/var/www/html/wp-content/languages' );#" "$cfg"
+	# If WP_LANG_DIR is not defined at all yet, append it after ABSPATH.
+	if ! grep -q "define( *'WP_LANG_DIR'" "$cfg"; then
+		sed -i '' "/define( *'ABSPATH'/a\\
+\\
+/* Language directory (must be defined so wp_get_installed_translations() can scan). */\\
+define( 'WP_LANG_DIR', '/var/www/html/wp-content/languages' );" "$cfg"
+	fi
+}
+
 # WordPress test bootstrap needs wp-tests-config.php in the core root.
 generate_wp_tests_config() {
 	if [ -n "$WP_ENV_CACHE_DIR" ]; then
 		# Rewrite only the port, whatever the DB host (localhost or tests-mysql).
 		sed -i '' -E "s#:[0-9]+\b#:${TESTS_PORT}#g" \
 			"$WP_ENV_CACHE_DIR/tests-WordPress-PHPUnit/tests/phpunit/wp-tests-config.php" 2>/dev/null || true
+		# Point ABSPATH and WP_LANG_DIR at the in-container paths.
+		inject_test_constants "$WP_ENV_CACHE_DIR/tests-WordPress-PHPUnit/tests/phpunit/wp-tests-config.php"
 	fi
 	for svc in wordpress tests-wordpress; do
 		if "$OPOSSUM" exec "$svc" cp /wordpress-phpunit/wp-tests-config.php /var/www/html/wp-tests-config.php 2>/dev/null; then
