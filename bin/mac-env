@@ -567,6 +567,10 @@ Usage:
   mac-env provision         re-run just the WordPress install/activation step
   mac-env test             run the PHPUnit suite in tests-cli
   mac-env test:multisite / test:coverage / test:php80
+  mac-env coverage:check [--multisite] [--exclude <json>]
+                        run the coverage suite, then gate on coverage/clover.xml.
+                        With --multisite, also pass --exclude <json> for the
+                        environment-only lines (see coverage-exclude.json).
   mac-env install-wp-tests [wp-version]   seed ~/.wp-env cache from git (X.Y.Z | trunk | latest)
   mac-env fetch            re-pull the pinned WordPress version (git fetch in place)
   mac-env cache-list       pick a populated ~/.wp-env cache dir; writes WP_ENV_CACHE_DIR to .env
@@ -675,15 +679,39 @@ for env in d.get('env',{}).values():
 run_tests() {
 	case "$1" in
 		multisite) export WP_MULTISITE=1; coverage_flags="" ;;
-		coverage) export WP_MULTISITE=0; coverage_flags="--coverage-text --colors=never" ;;
+		coverage) export WP_MULTISITE=0; coverage_flags="--coverage-clover=/var/www/html/wp-content/plugins/${WP_PLUGIN_SLUG}/coverage/clover.xml --coverage-text --colors=never" ;;
+		coverage-multisite) export WP_MULTISITE=1; coverage_flags="--coverage-clover=/var/www/html/wp-content/plugins/${WP_PLUGIN_SLUG}/coverage/clover-multisite.xml --coverage-text --colors=never" ;;
 		php80) export WP_MULTISITE=0; coverage_flags="" ;;
 		*) export WP_MULTISITE=0; coverage_flags="" ;;
 	esac
 	"$OPOSSUM" exec tests-cli env \
+	WP_MULTISITE="$WP_MULTISITE" \
 	WP_TESTS_PHPUNIT_POLYFILLS_PATH=/var/www/html/wp-content/plugins/${WP_PLUGIN_SLUG}/vendor/yoast/phpunit-polyfills \
 	/var/www/html/wp-content/plugins/${WP_PLUGIN_SLUG}/vendor/bin/phpunit \
 	--config=/var/www/html/wp-content/plugins/${WP_PLUGIN_SLUG}/phpunit.xml \
 	$coverage_flags
+}
+
+# Run the coverage suite, then gate host-side on the bind-mounted clover.
+# clover is written inside the container but bind-mounted to the plugin root,
+# so it is readable from the host. Plugins may pass --exclude <json> for
+# environment-only line exclusions (see coverage-exclude.json convention).
+run_coverage_check() {
+	local ms_flag=""
+	local exclude_flag=""
+	while [ $# -gt 0 ]; do
+		case "$1" in
+			--multisite) ms_flag="--multisite" ;;
+			--exclude) exclude_flag="--exclude ${2:-}"; shift ;;
+		esac
+		shift
+	done
+	# --multisite must drive the test run (WP_MULTISITE=1), not just the gate.
+	local mode="coverage"
+	local clover="coverage/clover.xml"
+	[ -n "$ms_flag" ] && { mode="coverage-multisite"; clover="coverage/clover-multisite.xml"; }
+	run_tests "$mode" || return $?
+	php "$SCRIPT_DIR/coverage-check.php" $ms_flag "$clover" $exclude_flag
 }
 
 case "$1" in
@@ -708,6 +736,7 @@ case "$1" in
 	test) run_tests "${2:-default}" ;;
 	test:multisite) run_tests multisite ;;
 	test:coverage) run_tests coverage ;;
+	coverage:check) run_coverage_check "${@:2}" ;;
 	test:php80) run_tests php80 ;;
 	*)
 		"$OPOSSUM" -f "$COMPOSE" "$@"
