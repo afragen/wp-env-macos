@@ -333,16 +333,11 @@ writes a new `.wp-env-version`).
 ### List caches with `mac-env cache-list`
 
 ```sh
-mac-env cache-list     # lists ~/.wp-env/* with their pinned version and
-                       # writes the chosen one to WP_ENV_CACHE_DIR in .env
+mac-env cache-list     # lists ~/.wp-env/* with their pinned version
 # e.g.
 #   /Users/you/.wp-env/wp-env-opossum-6.7      6.7        (git)
 #   /Users/you/.wp-env/d0e5…aeee78fb           —          (wp-env)
 ```
-
-If `fzf` is installed, `cache-list` opens an interactive TUI (↑/↓ to move,
-Enter to select, Esc to cancel). Without `fzf`, it falls back to a built-in
-`[ ]`/`[x]` menu — type a number to toggle, Enter to confirm, `0` to cancel.
 
 Handy when several cache dirs exist and `init` can't auto-detect one
 (it only auto-fills when exactly one exists).

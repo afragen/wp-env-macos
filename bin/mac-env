@@ -496,10 +496,9 @@ $line" .env
 
 # Interactive: pick a complete cache dir and write it to .env.
 # Non-TTY, --list, or no complete dirs fall back to the plain verbose listing.
-# When fzf is available (and stdout is a TTY) the choices are shown in a real
-# TUI (up/down arrows + spacebar/Enter). Otherwise it falls back to a pure
-# POSIX sh [ ]/[x] checkbox menu (type a number to toggle, Enter to confirm,
-# 0 to cancel) — no external dependency required.
+# Renders the choices as selectable [ ]/[x] checkboxes (radio-style: only one
+# can be active at a time); typing a number toggles it, Enter confirms, 0
+# cancels. Pure POSIX sh — no external dependencies.
 cache_list() {
 	if [ ! -t 1 ] || [ "$1" = "--list" ]; then
 		list_cache_dirs_verbose
@@ -523,18 +522,7 @@ cache_list() {
 		return 1
 	fi
 
-	# fzf path: a genuine TUI (arrow keys + spacebar/Enter), single-select.
-	if command -v fzf >/dev/null 2>&1; then
-		local chosen
-		chosen="$(printf '%s' "$dirs" | fzf --no-multi \
-			--prompt='Select a wp-env cache dir for WP_ENV_CACHE_DIR: ' \
-			--header='↑/↓ move · Enter select · Esc cancel')"
-		[ -n "$chosen" ] || return 0
-		write_cache_dir_to_env "$chosen"
-		return 0
-	fi
-
-	# Fallback: render the checkbox menu with [ ]/[x] markers. Clear the
+	# Render the checkbox menu with [ ]/[x] markers. Clear the
 	# screen so the list re-draws cleanly on each toggle (ANSI escape).
 	print_cache_menu() {
 		local sel="$1" i=1
