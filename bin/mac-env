@@ -236,6 +236,8 @@ render_env() {
 #         …slow work…
 #         stop_spinner
 # The spinner only animates when stdout is a terminal (skipped for pipes/CI).
+# Braille frames are multibyte UTF-8, so we index them as positional params
+# (set -- …) and pull each with `eval "g=\${$n}"` — portable, no byte math.
 _SPINNER_PID=""
 _SPINNER_LABEL=""
 start_spinner() {
@@ -243,11 +245,12 @@ start_spinner() {
 	[ -t 1 ] || return 0
 	printf '%s' "$_SPINNER_LABEL"
 	( set +x
-	  local frames='|/-\'
-	  local i=0
+	  set -- '⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏'
+	  local i=0 g
 	  trap '' TERM
 	  while true; do
-		printf '\r%s %s' "$_SPINNER_LABEL" "$(printf '%s' "$frames" | cut -c $((i % 4 + 1)))"
+		eval "g=\${$((i % 10 + 1))}"
+		printf '\r%s %s' "$_SPINNER_LABEL" "$g"
 		i=$((i + 1))
 		sleep 0.1
 	  done
