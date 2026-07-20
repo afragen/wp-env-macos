@@ -288,7 +288,7 @@ sync_wp_env_cache() {
 		rsync -a --delete "$src_dev/tests/phpunit/includes/" "$dst/tests/phpunit/includes/"
 		cp "$src_dev/wp-tests-config-sample.php" "$dst/tests/phpunit/wp-tests-config.php" 2>/dev/null || true
 		# Rewrite the test config the same way install-wp-tests.sh does.
-		sed -i '' "s:dirname( __FILE__ ) . '/src/':'$cache_dir/tests-WordPress':" "$dst/tests/phpunit/wp-tests-config.php"
+		sed -i '' "s:dirname( __FILE__ ) . '/src/':'$cache_dir/tests-WordPress/':" "$dst/tests/phpunit/wp-tests-config.php"
 		sed -i '' "s/youremptytestdbnamehere/tests-wordpress/" "$dst/tests/phpunit/wp-tests-config.php"
 		sed -i '' "s/yourusernamehere/root/" "$dst/tests/phpunit/wp-tests-config.php"
 		sed -i '' "s/yourpasswordhere/password/" "$dst/tests/phpunit/wp-tests-config.php"

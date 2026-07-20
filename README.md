@@ -27,9 +27,9 @@ provisioning steps on top of opossum instead.
 your `npm test` workflow.
 
 **What changes:** the runtime (opossum + `container`) and the orchestration
-script (`mac-env`). The first time, you still run `wp-env start` once to populate
-`~/.wp-env` (WordPress core + PHPUnit libraries); after that, wp-env is no
-longer used at runtime.
+script (`mac-env`). The first time, you populate `~/.wp-env` — either by running
+`wp-env start` once (Variant 1, recommended) or with `mac-env install-wp-tests`
+(Variant 2, no wp-env). After that, wp-env is no longer used at runtime.
 
 ---
 
@@ -53,9 +53,11 @@ longer used at runtime.
   ```
   (`mac-env up` also runs this automatically on first start if it's missing.)
 - **Python 3** (used by `mac-env` for JSON parsing — present on macOS)
-- [`@wordpress/env`](https://www.npmjs.com/package/@wordpress/env) installed
-  **once** in the project, to populate the `~/.wp-env` cache (see below). After
-  the cache exists you no longer run wp-env at runtime.
+- [`@wordpress/env`](https://www.npmjs.com/package/@wordpress/env) — **only for
+  Variant 1** (the recommended, wp-env-seeded cache). Install it **once** to
+  populate `~/.wp-env`, then it's no longer used at runtime. Skip it entirely
+  and use `mac-env install-wp-tests` (Variant 2) instead if you prefer not to
+  pull wp-env's ~390 transitive packages.
 
 ---
 
@@ -166,7 +168,7 @@ in `.env` yourself:
   four subdirs `WordPress/`, `tests-WordPress/`, `WordPress-PHPUnit/`, and
   `tests-WordPress-PHPUnit/` will work — the plugin itself is mounted from your
   project (`${PWD}`), not from the cache, so the cache is just generic WordPress
-  core + PHPUnit libs. List them with `ls -d ~/.wp-env/*/` and use any complete
+  core + PHPUnit libs. List them with `mac-env cache-list` and use any complete
   one:
   ```sh
   mac-env cache-list
@@ -177,9 +179,11 @@ in `.env` yourself:
   ```sh
   echo "WP_ENV_CACHE_DIR=/Users/you/.wp-env/d0e5a894db5a72bb9cfe0514aeee78fb" >> .env
   ```
-- **No `~/.wp-env` yet:** run `npx wp-env start` once (step 1) to
-  populate it, then re-run `npx wp-env-opossum init` — it will now
-  auto-fill the path into `.env` for you.
+- **No `~/.wp-env` yet:** either run `npx wp-env start` once (step 1) to
+  populate it, or skip wp-env entirely with `mac-env install-wp-tests
+  [version]` (see [Variant 2](#variant-2--mac-env-install-wp-tests)). Then
+  re-run `npx wp-env-opossum init` — it will now auto-fill the path into
+  `.env` for you.
 
 Everything else (ports, host user identity, xdebug host) is auto-detected.
 
@@ -271,8 +275,10 @@ All optional — sensible defaults apply. Set them in `.env` or the environment.
   DB ports required.
 - **Provisioning mirrors wp-env's `configureWordPress`:** `wp core install`
   (idempotent), `wp config set` from `.wp-env.json`, plugin/theme activation,
-  and copying wp-env's canonical `wp-tests-config.php` (with the port normalized
-  to `WP_ENV_TESTS_PORT`).
+  and generating `wp-tests-config.php` from the cache (wp-env's canonical file
+  for wp-env-seeded caches, or its own `wp-tests-config-sample.php` for
+  git-seeded caches) with the DB port normalized to `WP_ENV_TESTS_PORT` and the
+  host set to `localhost` (wp-env-seeded) or `tests-mysql` (git-seeded).
 - **Xdebug** is compiled into the CLI images at build time, so
   `test:coverage` works without any runtime hook.
 
@@ -350,10 +356,11 @@ holding 8888/8889/3306/3307. Stop it, or run only one opossum project at a time.
 **`command not found: opossum`** — install opossum and ensure it's on your
 `PATH`. Set `OPOSSUM=/path/to/opossum` if it's elsewhere.
 
-**Containers won't resolve each other by name** — expected; this stack uses the
-host LAN IP for DB access rather than container DNS. If you prefer name-based
-discovery, run `sudo container system dns create opossum` once and set
-`WORDPRESS_DB_HOST` to `mysql` / `tests-mysql` in `compose.yaml`.
+**Containers won't resolve each other by name** — run
+`sudo container system dns create opossum` once (idempotent). After that, the
+app containers reach the database by its bare service name (`mysql` /
+`tests-mysql`) on the internal port 3306. `mac-env up` runs this automatically
+on first start if it's missing.
 
 ---
 
