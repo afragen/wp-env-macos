@@ -33,6 +33,6 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/afragen/wp-env-opossum"
+    "url": "git+https://github.com/afragen/wp-env-opossum.git"
   }
 }
