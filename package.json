@@ -1,6 +1,6 @@
 {
   "name": "wp-env-opossum",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "description": "A drop-in @wordpress/env replacement that runs the wp-env test environment on Apple's native `container` runtime via opossum — no Podman or Docker Desktop VM.",
   "bin": {
     "mac-env": "bin/mac-env",
