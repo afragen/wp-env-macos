@@ -319,8 +319,11 @@ sync_wp_env_cache() {
 	fi
 	mkdir -p "$cache_dir/WordPress" "$cache_dir/tests-WordPress"
 	stop_spinner
-	# Only re-copy when the source actually changed (avoids a full-tree rsync walk).
-	if [ -z "$WP_ENV_SKIP_RSYNC" ]; then
+	# Skip the copy only when the destination already has the core files we need
+	# (a prior rsync succeeded) — otherwise a re-pull that skipped rsync would
+	# leave tests-WordPress/ empty and break the test run. WP_ENV_SKIP_RSYNC=1
+	# is an explicit force-skip for callers that have already verified the copy.
+	if [ -z "$WP_ENV_SKIP_RSYNC" ] || [ ! -f "$cache_dir/tests-WordPress/wp-settings.php" ]; then
 		start_spinner "copying WordPress core into cache…"
 		rsync -a --delete --exclude=.git "$src_wp/" "$cache_dir/WordPress/"
 		rsync -a --delete --exclude=.git "$src_wp/" "$cache_dir/tests-WordPress/"
