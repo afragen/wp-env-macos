@@ -58,10 +58,10 @@ TESTS_PORT="${WP_ENV_TESTS_PORT:-8889}"
 DEV_THEME="${WP_ENV_DEV_THEME:-twentytwentyfour}"
 
 # One-time DNS setup so bare service names (mysql, tests-mysql) resolve across
-# the opossum-managed containers. `container system dns create opossum` is
-# idempotent; guard the sudo so it only runs when the domain isn't registered.
+# the opossum-managed containers. Idempotent: only run sudo when the
+# `opossum` DNS domain isn't already registered (checked via `dns list`).
 ensure_dns() {
-	if ! container system dns 2>/dev/null | grep -q opossum; then
+	if ! container system dns list 2>/dev/null | grep -qx opossum; then
 		echo "mac-env: setting up container DNS (one-time, requires sudo)…"
 		sudo container system dns create opossum || true
 	fi
