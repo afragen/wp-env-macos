@@ -250,7 +250,7 @@ start_spinner() {
 	  trap '' TERM
 	  while true; do
 		eval "g=\${$((i % 10 + 1))}"
-		printf '\r%s %s' "$_SPINNER_LABEL" "$g"
+		printf '\r%s %s' "$g" "$_SPINNER_LABEL"
 		i=$((i + 1))
 		sleep 0.1
 	  done
