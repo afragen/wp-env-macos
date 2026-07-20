@@ -1,15 +1,16 @@
-# Template rendered by `gu-env init` into a project's compose.yaml.
+# Template rendered by `mac-env init` into a project's compose.yaml.
 # Placeholders @@PLUGIN_SLUG@@, @@DEV_THEME@@, @@FIXTURE_PLUGIN_MOUNTS@@,
 # @@FIXTURE_THEME_MOUNTS@@ are substituted at init time.
 #
-# Bring up with:   gu-env up        Tear down:   gu-env down -v
-# Run tests with:  gu-env test
+# Bring up with:   mac-env up        Tear down:   mac-env down -v
+# Run tests with:  mac-env test
 #
 # Values are interpolated from .env. WordPress core + PHPUnit libs come from
-# @wordpress/env's cache (WP_ENV_CACHE_DIR, populated by `wp-env start` once).
+# @wordpress/env's cache (WP_ENV_CACHE_DIR, populated by `wp-env start` once
+# or by `mac-env install-wp-tests`).
 #
 # Database reachability uses container-name DNS: run
-# `sudo container system dns create opossum` ONCE (gu-env does this
+# `sudo container system dns create opossum` ONCE (mac-env does this
 # automatically on first `up` if missing). After that, the app containers
 # reach the database by its bare service name (mysql / tests-mysql) on the
 # internal port 3306 — no host LAN IP and no published DB ports needed.

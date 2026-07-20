@@ -9,7 +9,7 @@ VM**. (One `sudo` is needed, once, to set up container DNS — see Requirements.
 It brings up the familiar two-site WordPress layout (a dev site you can browse
 and a separate tests site that PHPUnit boots against), provisions WordPress
 (`wp core install`, plugin/theme activation, `wp-tests-config.php` generation),
-and runs your PHPUnit suite — all orchestrated by `gu-env`, a small shell
+and runs your PHPUnit suite — all orchestrated by `mac-env`, a small shell
 wrapper around `opossum`.
 
 ---
@@ -27,7 +27,7 @@ provisioning steps on top of opossum instead.
 your `npm test` workflow.
 
 **What changes:** the runtime (opossum + `container`) and the orchestration
-script (`gu-env`). The first time, you still run `wp-env start` once to populate
+script (`mac-env`). The first time, you still run `wp-env start` once to populate
 `~/.wp-env` (WordPress core + PHPUnit libraries); after that, wp-env is no
 longer used at runtime.
 
@@ -51,8 +51,8 @@ longer used at runtime.
   ```sh
   sudo container system dns create opossum
   ```
-  (`gu-env up` also runs this automatically on first start if it's missing.)
-- **Python 3** (used by `gu-env` for JSON parsing — present on macOS)
+  (`mac-env up` also runs this automatically on first start if it's missing.)
+- **Python 3** (used by `mac-env` for JSON parsing — present on macOS)
 - [`@wordpress/env`](https://www.npmjs.com/package/@wordpress/env) installed
   **once** in the project, to populate the `~/.wp-env` cache (see below). After
   the cache exists you no longer run wp-env at runtime.
@@ -86,9 +86,10 @@ is only needed once to seed the cache — install it transiently with `--no-save
 > then `npx wp-env start`, then `npm uninstall @wordpress/env --no-save`.
 > The cache persists; the dependency is never committed.
 >
-> **Variant 2 (future):** a built-in `install-wp-tests` could fetch WordPress
-> core + PHPUnit libs directly (via `svn`), removing the wp-env dependency
-> entirely. Not yet implemented.
+> **Variant 2 (no wp-env needed):** `mac-env install-wp-tests [version]` git-clones
+> WordPress core + PHPUnit libs directly from GitHub (see below), arranges the
+> `~/.wp-env` cache, and pins the version — removing the wp-env dependency
+> entirely. No `svn` required.
 
 ---
 
@@ -117,6 +118,14 @@ Find your cache directory hash:
 ls -d ~/.wp-env/*/
 # e.g. /Users/you/.wp-env/d0e5a894db5a72bb9cfe0514aeee78fb
 ```
+
+> **Or skip wp-env entirely (Variant 2):** `mac-env install-wp-tests [version]`
+> git-clones WordPress core (`WordPress/WordPress`) + the PHPUnit test framework
+> (`WordPress/wordpress-develop`) from GitHub, arranges them into a fresh
+> `~/.wp-env/wp-env-opossum-<version>/` cache, pins the version, and rewrites
+> `wp-tests-config.php` with the `tests-mysql` DB host. No `@wordpress/env` and
+> no `svn` required. List existing caches with `mac-env cache-list`, and re-pull
+> the pinned version later with `mac-env fetch`. See [Variant 2](#variant-2--mac-env-install-wp-tests).
 
 ### 2. Initialize the project
 
@@ -160,7 +169,7 @@ in `.env` yourself:
   core + PHPUnit libs. List them with `ls -d ~/.wp-env/*/` and use any complete
   one:
   ```sh
-  ls -d ~/.wp-env/*/
+  mac-env cache-list
   # pick any dir that has WordPress/, tests-WordPress/, *-PHPUnit/ subdirs
   ```
   Then add that path to your project `.env` (create `.env` if it doesn't
@@ -194,14 +203,14 @@ npm run env:stop                 # npx wp-env-opossum down
 npm run env:stop -- -v           # also drop the database volumes
 ```
 
-`gu-env up` is idempotent — re-running it re-provisions safely (skips an already
+`mac-env up` is idempotent — re-running it re-provisions safely (skips an already
 installed site, re-syncs the port in `wp-config.php`, re-activates plugins).
 
 ---
 
 ## Commands
 
-`gu-env` (alias `wp-env-opossum`) supports:
+`mac-env` (alias `wp-env-opossum`) supports:
 
 | Command                | Description                                                              |
 | ---------------------- | ------------------------------------------------------------------------ |
@@ -209,14 +218,18 @@ installed site, re-syncs the port in `wp-config.php`, re-activates plugins).
 | `up [opossum args]`    | `opossum up` **then** provision (install WordPress).                     |
 | `down [-v]`            | `opossum down` (add `-v` to drop volumes).                               |
 | `provision`            | Re-run only the WordPress install/activation step.                       |
-| `ps`, `logs`, `exec`, `run`, `config`, `build`, … | Passed straight through to `opossum`. |
 | `test`                 | Run PHPUnit on the tests site (`:8889`).                                 |
 | `test:multisite`       | Run with `WP_MULTISITE=1`.                                              |
 | `test:coverage`        | Run with Xdebug coverage flags.                                         |
 | `test:php80`           | Run the PHP 8.0 variant (if your matrix includes it).                   |
+| `install-wp-tests [v]`  | Seed the `~/.wp-env` cache from git — `v` is `X.Y.Z` \| `trunk` \| `latest` (default `latest`). No wp-env needed. |
+| `fetch`                | Re-pull the pinned WordPress version in place (`git fetch`/pull + rsync). Manual — never run by `up`. |
+| `cache-list`           | List `~/.wp-env/*` cache dirs with their pinned version.            |
+| `help` / `--help`     | Print the full command list.                                            |
+| `ps`, `logs`, `exec`, `run`, `config`, `build`, … | Passed straight through to `opossum`. |
 
 Any unrecognized command is forwarded to `opossum -f compose.yaml`, so you can
-use the full opossum CLI (`gu-env exec cli wp plugin list`, etc.).
+use the full opossum CLI (`mac-env exec cli wp plugin list`, etc.).
 
 ---
 
@@ -239,7 +252,7 @@ All optional — sensible defaults apply. Set them in `.env` or the environment.
 > **Concurrent projects:** only one stack can be active at a time on a given
 > host (Apple `container` binds host ports directly, and opossum's
 > per-project namespacing does not isolate host ports — same as two wp-env
-> instances would collide). Stop one (`gu-env down`) before starting another.
+> instances would collide). Stop one (`mac-env down`) before starting another.
 > Because you run one at a time, the standard 8888/8889 ports work for every
 > project.
 
@@ -251,7 +264,7 @@ All optional — sensible defaults apply. Set them in `.env` or the environment.
   - `wordpress` + `cli` + `mysql` → the **dev site** on `:8888`.
   - `tests-wordpress` + `tests-cli` + `tests-mysql` → the **tests site** on
     `:8889`, bootstrapped fresh by PHPUnit.
-- **Database reachability via container DNS:** `gu-env up` runs
+- **Database reachability via container DNS:** `mac-env up` runs
   `sudo container system dns create opossum` once (idempotent) so the app
   containers reach the database by its bare service name (`mysql` /
   `tests-mysql`) on the internal port 3306 — no host LAN IP and no published
@@ -265,13 +278,68 @@ All optional — sensible defaults apply. Set them in `.env` or the environment.
 
 ---
 
+## Variant 2 — `mac-env install-wp-tests` (no wp-env needed)
+
+Instead of seeding `~/.wp-env` with `@wordpress/env`, you can fetch WordPress
+core + the PHPUnit test framework **directly from GitHub with git** — no
+`@wordpress/env` and no `svn` required.
+
+```sh
+mac-env install-wp-tests latest     # or a pinned X.Y.Z, or `trunk`
+```
+
+What it does:
+1. Resolves the version (`X.Y.Z` tag, `trunk` branch, or `latest` from
+   `api.wordpress.org`).
+2. Git-clones two repos into the cache (clone **once**, then copies):
+   - **`WordPress/WordPress`** (release core) → `WordPress/` **and** `tests-WordPress/`.
+     Both core trees are the *release* core; `tests-WordPress/` is **not** based on
+     `wordpress-develop`.
+   - **`WordPress/wordpress-develop`** (test framework) → its
+     `tests/phpunit/includes/` + `wp-tests-config-sample.php` copied into
+     **both** `WordPress-PHPUnit/tests/phpunit/` and
+     `tests-WordPress-PHPUnit/tests/phpunit/`.
+3. Rewrites `wp-tests-config.php` (DB `tests-wordpress` / `root` / `password`,
+   host `tests-mysql`).
+4. Pins the version in `<cache>/.wp-env-version` and prints the cache path.
+
+After seeding, `mac-env init` auto-fills `WP_ENV_CACHE_DIR`, and `mac-env up`
+runs the stack with **zero `@wordpress/env` dependency**.
+
+### Re-pull with `mac-env fetch`
+
+`mac-env up` never does network I/O. To refresh the already-pinned version in
+place (a fast `git fetch`/`pull` + rsync — no re-download):
+
+```sh
+mac-env fetch          # re-pulls the version pinned in <cache>/.wp-env-version
+```
+
+To **switch** versions, re-run `mac-env install-wp-tests <new-version>` (it
+writes a new `.wp-env-version`).
+
+### List caches with `mac-env cache-list`
+
+```sh
+mac-env cache-list     # lists ~/.wp-env/* with their pinned version
+# e.g.
+#   /Users/you/.wp-env/wp-env-opossum-6.7      6.7        (git)
+#   /Users/you/.wp-env/d0e5…aeee78fb           —          (wp-env)
+```
+
+Handy when several cache dirs exist and `init` can't auto-detect one
+(it only auto-fills when exactly one exists).
+
+---
+
 ## Troubleshooting
 
 **`wp-tests-config.php not found`** — the `~/.wp-env` cache is empty. Run
-`npx wp-env start` once (see First-time setup) to populate it, then `gu-env up`.
+`mac-env install-wp-tests` (or `npx wp-env start` once, see First-time setup) to
+populate it, then `mac-env up`.
 
 **Dev site redirects to the wrong port / blank page** — wp-env bakes
-`WP_SITEURL`/`WP_HOME` into the cache `wp-config.php` at install time. `gu-env
+`WP_SITEURL`/`WP_HOME` into the cache `wp-config.php` at install time. `mac-env
 provision` re-syncs these to the current port and activates a real theme
 (`WP_ENV_DEV_THEME`) so the page renders. If a browser cached an old redirect,
 hard-refresh (⌘-Option-R) or clear the site's cache.
@@ -322,7 +390,7 @@ cd /path/to/wp-env-opossum && npm link
 cd /path/to/your-plugin && npm link wp-env-opossum
 ```
 
-Then `npx wp-env-opossum init` (or `npx gu-env`) resolves to the linked
+Then `npx wp-env-opossum init` (or `npx mac-env`) resolves to the linked
 copy. If `npm install` reports "up to date" and skips the local package,
 remove `package-lock.json` + `node_modules` and reinstall — a stale lockfile
 pin to a previous `file:` path can block re-resolution.

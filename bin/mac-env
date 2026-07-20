@@ -7,17 +7,10 @@
 # wp-tests-config.php generation. This mirrors @wordpress/env's configureWordPress
 # step, translated from `docker compose` to `opossum exec`.
 #
-# Usage:
-#   gu-env init            # scaffold compose.yaml + .env + docker/; add scripts; gitignore
-#   gu-env up              # build + start + provision (install WordPress)
-#   gu-env down            # stop + remove (pass -v to also drop volumes)
-#   gu-env ps | logs | exec | run | config | ...   # any opossum subcommand
-#   gu-env provision       # re-run just the WordPress install/activation step
-#   gu-env test            # run the PHPUnit suite in tests-cli
-#   gu-env test:multisite / test:coverage / test:php80
+# Usage: see `mac-env help` (or `mac-env --help`).
 #
 # Requires macOS 26+ / Apple silicon, `container` running, and opossum installed.
-# Database reachability uses container-name DNS: gu-env runs
+# Database reachability uses container-name DNS: mac-env runs
 # `sudo container system dns create opossum` ONCE (idempotent) on first `up`,
 # after which app containers reach the DB by bare service name (mysql /
 # tests-mysql) — no host LAN IP or published DB ports needed.
@@ -26,7 +19,7 @@
 #   WP_PLUGIN_SLUG        plugin directory name under wp-content/plugins
 #                         (default: current directory basename)
 #   WP_ENV_CACHE_DIR      path to @wordpress/env's cache (populated by `wp-env
-#                         start`); holds WordPress core + PHPUnit libs
+#                         start` once, or by `mac-env install-wp-tests`)
 #   WP_ENV_PORT / WP_ENV_TESTS_PORT
 #   HOST_USERNAME / HOST_UID / HOST_GID   (auto-detected from `id` if unset)
 #   WP_ENV_FIXTURE_PLUGINS / WP_ENV_FIXTURE_THEMES
@@ -69,9 +62,25 @@ DEV_THEME="${WP_ENV_DEV_THEME:-twentytwentyfour}"
 # idempotent; guard the sudo so it only runs when the domain isn't registered.
 ensure_dns() {
 	if ! container system dns 2>/dev/null | grep -q opossum; then
-		echo "gu-env: setting up container DNS (one-time, requires sudo)…"
+		echo "mac-env: setting up container DNS (one-time, requires sudo)…"
 		sudo container system dns create opossum || true
 	fi
+}
+
+# List all wp-env cache subdirs (one per project), newline-separated.
+list_cache_dirs() {
+	local cache_root="$HOME/.wp-env"
+	[ -d "$cache_root" ] || return 0
+	find "$cache_root" -maxdepth 1 -type d ! -name "$(basename "$cache_root")" 2>/dev/null || true
+}
+
+# Detect the wp-env cache dir: if ~/.wp-env has exactly one subdirectory,
+# use it; otherwise emit nothing (caller leaves WP_ENV_CACHE_DIR blank).
+detect_cache_dir() {
+	local dirs count
+	dirs="$(list_cache_dirs)"
+	count="$(printf '%s\n' $dirs | grep -c . || true)"
+	[ "$count" = "1" ] && printf '%s' "$dirs"
 }
 
 # --- `init`: scaffold compose.yaml + .env into the current project ---
@@ -80,7 +89,7 @@ do_init() {
 	# the overwrite (equivalent to running with WP_ENV_FORCE_INIT=1) instead of
 	# refusing.
 	if [ -f compose.yaml ]; then
-		[ -n "$WP_ENV_FORCE_INIT" ] || echo "gu-env: compose.yaml already exists — re-initializing (overwrite forced)." >&2
+		[ -n "$WP_ENV_FORCE_INIT" ] || echo "mac-env: compose.yaml already exists — re-initializing (overwrite forced)." >&2
 		WP_ENV_FORCE_INIT=1
 	fi
 	# Determine the plugin slug: it's the project directory name, since the
@@ -131,7 +140,7 @@ do_init() {
 		grep -qxF "$entry" .gitignore 2>/dev/null || printf '%s\n' "$entry" >> .gitignore
 	done
 
-	echo "gu-env: initialized in $(pwd)"
+	echo "mac-env: initialized in $(pwd)"
 	echo "  plugin slug : $WP_PLUGIN_SLUG"
 	echo "  fixtures    : ${WP_ENV_FIXTURE_PLUGINS:-none} ${WP_ENV_FIXTURE_THEMES:+| $WP_ENV_FIXTURE_THEMES}"
 	[ -f package.json ] && echo "  scripts     : added env:start/env:stop/env:install/test[/:multisite/:coverage/:php80] to package.json"
@@ -142,14 +151,14 @@ do_init() {
 		echo "    → copy into .env:  WP_ENV_CACHE_DIR=$cache_dir"
 	elif [ -d "$HOME/.wp-env" ]; then
 		echo "  cache dir   : (multiple found under ~/.wp-env — any complete one works)"
-		echo "    → run:  ls -d ~/.wp-env/*/"
+		echo "    → run:  mac-env cache-list"
 		echo "      pick a dir with WordPress/, tests-WordPress/, *-PHPUnit/ subdirs"
 		echo "    → copy that into .env as:  WP_ENV_CACHE_DIR=<path>"
 	else
 		echo "  cache dir   : (not found — ~/.wp-env missing)"
-		echo "    → run 'wp-env start' once to populate it, then re-run 'gu-env init'"
+		echo "    → run 'mac-env install-wp-tests' (or 'wp-env start' once) to populate it, then re-run 'mac-env init'"
 	fi
-	echo "  next steps  : set WP_ENV_CACHE_DIR in .env, then 'gu-env up'"
+	echo "  next steps  : set WP_ENV_CACHE_DIR in .env, then 'mac-env up'"
 }
 
 # Add wp-env-opossum scripts to package.json if it exists, idempotently.
@@ -190,29 +199,14 @@ sys.stdout.write(s)
 PY
 }
 
-# List all wp-env cache subdirs (one per project), newline-separated.
-list_cache_dirs() {
-	local cache_root="$HOME/.wp-env"
-	[ -d "$cache_root" ] || return 0
-	find "$cache_root" -maxdepth 1 -type d ! -name "$(basename "$cache_root")" 2>/dev/null || true
-}
-
-# Detect the wp-env cache dir: if ~/.wp-env has exactly one subdirectory,
-# use it; otherwise emit nothing (caller leaves WP_ENV_CACHE_DIR blank).
-detect_cache_dir() {
-	local dirs count
-	dirs="$(list_cache_dirs)"
-	count="$(printf '%s\n' $dirs | grep -c . || true)"
-	[ "$count" = "1" ] && printf '%s' "$dirs"
-}
-
 render_env_body() {
 	cat <<EOF
-# Path to @wordpress/env's cache (populated by 'wp-env start' once). Found via:
-#   ls -d ~/.wp-env/*/   (auto-detected below if exactly one exists)
+# Path to @wordpress/env's cache (populated by 'wp-env start' once, or by
+# 'mac-env install-wp-tests'). Found via:
+#   mac-env cache-list   (auto-detected below if exactly one exists)
 WP_ENV_CACHE_DIR=${WP_ENV_CACHE_DIR:-$(detect_cache_dir)}
 
-# Host user identity is auto-detected by gu-env from 'id' — usually no need to set.
+# Host user identity is auto-detected by mac-env from 'id' — usually no need to set.
 # HOST_USERNAME=
 # HOST_UID=
 # HOST_GID=
@@ -232,22 +226,186 @@ EOF
 }
 
 render_env() {
-	echo "# wp-env-opossum environment — generated by 'gu-env init'."
+	echo "# wp-env-opossum environment — generated by 'mac-env init'."
 	echo ''
 	render_env_body
+}
+
+# --- Variant 2: git-based WordPress core + PHPUnit test-lib fetch ---
+
+# Resolve a wp-version argument into a git ref.
+#   X.Y.Z       -> tag "X.Y.Z"
+#   trunk        -> branch "trunk"
+#   latest|""   -> query api.wordpress.org for the latest stable tag
+resolve_wp_version() {
+	local v="${1:-latest}"
+	if [ "$v" = "trunk" ]; then
+		printf 'trunk'
+		return
+	fi
+	if [ "$v" = "latest" ] || [ -z "$v" ]; then
+		local json
+		json="$(curl -s http://api.wordpress.org/core/version-check/1.7/ 2>/dev/null || true)"
+		v="$(printf '%s' "$json" | grep -o '"version":"[^"]*' | sed 's/"version":"//' | head -1)"
+		[ -n "$v" ] || { echo "mac-env: latest WordPress version could not be found" >&2; return 1; }
+	fi
+	printf '%s' "$v"
+}
+
+# Shared sync: clone-or-pull the two source repos into <cache>/.src-* and
+# arrange them into the four consumed subdirs, then rewrite wp-tests-config.php.
+# Idempotent: re-running with the same tag is a fetch + rsync (deltas only).
+sync_wp_env_cache() {
+	cache_dir="$1"
+	tag="$2"
+	src_wp="$cache_dir/.src-wordpress"
+	src_dev="$cache_dir/.src-develop"
+
+	# --- WordPress/WordPress (release core) -> WordPress/ + tests-WordPress/ ---
+	if [ -d "$src_wp/.git" ]; then
+		git -C "$src_wp" fetch --tags >/dev/null 2>&1 || true
+		if [ "$tag" = "trunk" ]; then git -C "$src_wp" pull --ff-only >/dev/null 2>&1 || true
+		else git -C "$src_wp" checkout "$tag" >/dev/null 2>&1 || true; fi
+	else
+		rm -rf "$src_wp"
+		git clone --depth 1 --branch "$tag" https://github.com/WordPress/WordPress.git "$src_wp" >/dev/null 2>&1
+	fi
+	mkdir -p "$cache_dir/WordPress" "$cache_dir/tests-WordPress"
+	rsync -a --delete --exclude=.git "$src_wp/" "$cache_dir/WordPress/"
+	rsync -a --delete --exclude=.git "$src_wp/" "$cache_dir/tests-WordPress/"
+
+	# --- WordPress/wordpress-develop (test framework) -> *-PHPUnit/tests/phpunit/ ---
+	if [ -d "$src_dev/.git" ]; then
+		git -C "$src_dev" fetch --tags >/dev/null 2>&1 || true
+		if [ "$tag" = "trunk" ]; then git -C "$src_dev" pull --ff-only >/dev/null 2>&1 || true
+		else git -C "$src_dev" checkout "$tag" >/dev/null 2>&1 || true; fi
+	else
+		rm -rf "$src_dev"
+		git clone --depth 1 --branch "$tag" https://github.com/WordPress/wordpress-develop.git "$src_dev" >/dev/null 2>&1
+	fi
+	for dst in "$cache_dir/WordPress-PHPUnit" "$cache_dir/tests-WordPress-PHPUnit"; do
+		mkdir -p "$dst/tests/phpunit/includes"
+		rsync -a --delete "$src_dev/tests/phpunit/includes/" "$dst/tests/phpunit/includes/"
+		cp "$src_dev/wp-tests-config-sample.php" "$dst/tests/phpunit/wp-tests-config.php" 2>/dev/null || true
+		# Rewrite the test config the same way install-wp-tests.sh does.
+		sed -i '' "s:dirname( __FILE__ ) . '/src/':'$cache_dir/tests-WordPress':" "$dst/tests/phpunit/wp-tests-config.php"
+		sed -i '' "s/youremptytestdbnamehere/tests-wordpress/" "$dst/tests/phpunit/wp-tests-config.php"
+		sed -i '' "s/yourusernamehere/root/" "$dst/tests/phpunit/wp-tests-config.php"
+		sed -i '' "s/yourpasswordhere/password/" "$dst/tests/phpunit/wp-tests-config.php"
+		sed -i '' "s|localhost|tests-mysql|" "$dst/tests/phpunit/wp-tests-config.php"
+	done
+}
+
+# Seed the cache from git (replaces the wp-env dependency).
+install_wp_tests() {
+	local ver="${1:-latest}"
+	local tag
+	tag="$(resolve_wp_version "$ver")" || return 1
+
+	# Pick the cache dir.
+	local cache_dir=""
+	if [ -n "$WP_ENV_CACHE_DIR" ] && [ -d "$WP_ENV_CACHE_DIR" ]; then
+		cache_dir="$WP_ENV_CACHE_DIR"
+	elif [ "$(list_cache_dirs | grep -c . || true)" = "1" ]; then
+		cache_dir="$(list_cache_dirs)"
+	else
+		cache_dir="$HOME/.wp-env/wp-env-opossum-$tag"
+	fi
+	mkdir -p "$cache_dir"
+
+	echo "mac-env: cloning WordPress ($tag) into $cache_dir …"
+	sync_wp_env_cache "$cache_dir" "$tag"
+	printf '%s' "$tag" > "$cache_dir/.wp-env-version"
+
+	echo "mac-env: cache ready at $cache_dir"
+	echo "  version     : $tag"
+	echo "  next step   : set WP_ENV_CACHE_DIR in .env (or run 'mac-env init' to auto-fill), then 'mac-env up'"
+}
+
+# Re-pull the pinned version in place (the git-fetch equivalent).
+fetch_wp_env_cache() {
+	local cache_dir=""
+	if [ -n "$WP_ENV_CACHE_DIR" ] && [ -d "$WP_ENV_CACHE_DIR" ]; then
+		cache_dir="$WP_ENV_CACHE_DIR"
+	else
+		cache_dir="$(detect_cache_dir || true)"
+	fi
+	if [ -z "$cache_dir" ] || [ ! -d "$cache_dir" ]; then
+		echo "mac-env: no cache dir found — run 'mac-env install-wp-tests [version]' first." >&2
+		return 1
+	fi
+	local tag="$(cat "$cache_dir/.wp-env-version" 2>/dev/null || true)"
+	if [ -z "$tag" ]; then
+		# Fall back to the current checkout of the wordpress clone, if present.
+		tag="$(git -C "$cache_dir/.src-wordpress" describe --tags 2>/dev/null || true)"
+		if [ -z "$tag" ]; then
+			echo "mac-env: no pinned version in $cache_dir/.wp-env-version — run 'mac-env install-wp-tests [version]'." >&2
+			return 1
+		fi
+	fi
+
+	echo "mac-env: fetching WordPress ($tag) in $cache_dir …"
+	sync_wp_env_cache "$cache_dir" "$tag"
+	echo "mac-env: fetched $tag"
+}
+
+# List available cache dirs with their pinned version.
+list_cache_dirs_verbose() {
+	if [ ! -d "$HOME/.wp-env" ]; then
+		echo "(no ~/.wp-env cache found)"
+		return 0
+	fi
+	local found=0
+	for d in $(list_cache_dirs); do
+		found=1
+		local ver="$(cat "$d/.wp-env-version" 2>/dev/null || true)"
+		local marker="(unknown)"
+		if [ -n "$ver" ]; then
+			marker="(git)"
+		elif [ -f "$d/WordPress/wp-settings.php" ]; then
+			ver="—"; marker="(wp-env)"
+		fi
+		printf '%-55s %-10s %s\n' "$d" "${ver:-—}" "$marker"
+	done
+	[ "$found" = "0" ] && echo "(no ~/.wp-env cache dirs found)"
+}
+
+# Print the full command list (canonical — shown by `mac-env help`).
+print_help() {
+	cat <<'EOF'
+mac-env — wp-env replacement backed by Apple `container` via opossum
+
+Usage:
+  mac-env init              scaffold compose.yaml + .env + docker/; add scripts; gitignore
+  mac-env up                build + start + provision (install WordPress)
+  mac-env down              stop + remove (pass -v to also drop volumes)
+  mac-env provision         re-run just the WordPress install/activation step
+  mac-env test             run the PHPUnit suite in tests-cli
+  mac-env test:multisite / test:coverage / test:php80
+  mac-env install-wp-tests [wp-version]   seed ~/.wp-env cache from git (X.Y.Z | trunk | latest)
+  mac-env fetch            re-pull the pinned WordPress version (git fetch in place)
+  mac-env cache-list       list ~/.wp-env/* cache dirs with their pinned version
+  mac-env help | --help   show this help
+
+Any other argument is forwarded to `opossum -f compose.yaml`
+(ps | logs | exec | run | config | ...).
+
+First run: `mac-env install-wp-tests`, then `mac-env init`, then `mac-env up`.
+EOF
 }
 
 # WordPress test bootstrap needs wp-tests-config.php in the core root.
 generate_wp_tests_config() {
 	if [ -n "$WP_ENV_CACHE_DIR" ]; then
-		sed -i '' "s#localhost:[0-9]*#localhost:${TESTS_PORT}#g" \
+		# Rewrite only the port, whatever the DB host (localhost or tests-mysql).
+		sed -i '' -E "s#:[0-9]+\b#:${TESTS_PORT}#g" \
 			"$WP_ENV_CACHE_DIR/tests-WordPress-PHPUnit/tests/phpunit/wp-tests-config.php" 2>/dev/null || true
 	fi
 	for svc in wordpress tests-wordpress; do
 		if "$OPOSSUM" exec "$svc" cp /wordpress-phpunit/wp-tests-config.php /var/www/html/wp-tests-config.php 2>/dev/null; then
-			"$OPOSSUM" exec "$svc" sh -c "sed -i 's#localhost:[0-9]*#localhost:${TESTS_PORT}#g' /var/www/html/wp-tests-config.php" >/dev/null 2>&1 || true
+			"$OPOSSUM" exec "$svc" sh -c "sed -i -E 's#:[0-9]+\\b#:${TESTS_PORT}#g' /var/www/html/wp-tests-config.php" >/dev/null 2>&1 || true
 		else
-			echo "gu-env: $svc: /wordpress-phpunit/wp-tests-config.php not found — run 'wp-env start' once to populate the cache." >&2
+			echo "mac-env: $svc: /wordpress-phpunit/wp-tests-config.php not found — run 'mac-env install-wp-tests' or 'wp-env start' once to populate the cache." >&2
 		fi
 	done
 }
@@ -255,6 +413,7 @@ generate_wp_tests_config() {
 # Install WordPress (dev + tests), apply config, activate. Idempotent.
 provision() {
 	local plugins=""
+	themes=""
 	if [ -f .wp-env.json ]; then
 		plugins="$(python3 -c "import json; d=json.load(open('.wp-env.json')); print(' '.join([p.rstrip('/').split('/')[-1] for p in d.get('plugins',[])]))" 2>/dev/null)"
 		themes="$(python3 -c "import json; d=json.load(open('.wp-env.json')); print(' '.join([t.rstrip('/').split('/')[-1] for t in d.get('themes',[])]))" 2>/dev/null)"
@@ -283,6 +442,7 @@ for env in d.get('env',{}).values():
 	fi
 	# Activate on the DEV site only; the test install is bootstrapped fresh.
 	[ -n "$plugins" ] && "$OPOSSUM" exec cli wp plugin activate $plugins >/dev/null 2>&1 || true
+	[ -n "$themes" ] && "$OPOSSUM" exec cli wp theme activate $themes >/dev/null 2>&1 || true
 	"$OPOSSUM" exec cli wp theme activate "$DEV_THEME" >/dev/null 2>&1 || true
 	# Keep the site URL in sync with the current port (wp-env bakes it into
 	# wp-config.php constants that override the DB).
@@ -311,13 +471,14 @@ run_tests() {
 		*) export WP_MULTISITE=0; coverage_flags="" ;;
 	esac
 	"$OPOSSUM" exec tests-cli env \
-		WP_TESTS_PHPUNIT_POLYFILLS_PATH=/var/www/html/wp-content/plugins/${WP_PLUGIN_SLUG}/vendor/yoast/phpunit-polyfills \
-		/var/www/html/wp-content/plugins/${WP_PLUGIN_SLUG}/vendor/bin/phpunit \
-		--config=/var/www/html/wp-content/plugins/${WP_PLUGIN_SLUG}/phpunit.xml \
-		$coverage_flags
+	WP_TESTS_PHPUNIT_POLYFILLS_PATH=/var/www/html/wp-content/plugins/${WP_PLUGIN_SLUG}/vendor/yoast/phpunit-polyfills \
+	/var/www/html/wp-content/plugins/${WP_PLUGIN_SLUG}/vendor/bin/phpunit \
+	--config=/var/www/html/wp-content/plugins/${WP_PLUGIN_SLUG}/phpunit.xml \
+	$coverage_flags
 }
 
 case "$1" in
+	help|--help|"") print_help ;;
 	init) do_init ;;
 	up)
 		# Apple `container`/opossum won't auto-create bind-mount sources, so
@@ -332,6 +493,9 @@ case "$1" in
 		"$OPOSSUM" -f "$COMPOSE" down "${@:2}"
 		;;
 	provision) provision ;;
+	install-wp-tests) install_wp_tests "${2:-latest}" ;;
+	fetch) fetch_wp_env_cache ;;
+	cache-list) list_cache_dirs_verbose ;;
 	test) run_tests "${2:-default}" ;;
 	test:multisite) run_tests multisite ;;
 	test:coverage) run_tests coverage ;;
