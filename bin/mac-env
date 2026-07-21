@@ -711,35 +711,9 @@ run_tests() {
 	$coverage_flags
 }
 
-# Colorize coverage output: green for 100%, yellow for 90-99%, red for <90%
-# Strips PHPUnit's ANSI codes first, then applies our own coloring only to percentages
-colorize_coverage() {
-	# Strip all ANSI escape codes first
-	sed 's/\x1b\[[0-9;]*m//g' | awk '{
-		# Color coverage percentages
-		if (match($0, /[0-9]+\.[0-9]+%/)) {
-			pct = substr($0, RSTART, RLENGTH-1) + 0
-			if (pct == 100) {
-				gsub(/[0-9]+\.[0-9]+%/, "\033[32m" substr($0, RSTART, RLENGTH) "\033[0m")
-			} else if (pct >= 90) {
-				gsub(/[0-9]+\.[0-9]+%/, "\033[33m" substr($0, RSTART, RLENGTH) "\033[0m")
-			} else {
-				gsub(/[0-9]+\.[0-9]+%/, "\033[31m" substr($0, RSTART, RLENGTH) "\033[0m")
-			}
-		}
-		# Bold the summary section
-		if ($0 ~ /^ Summary:/ || $0 ~ /^Code Coverage Report:/) {
-			print "\033[1m" $0 "\033[0m"
-		} else {
-			print
-		}
-	}'
-}
-
-# Run both coverage suites (single-site + multisite) and display --coverage-text.
-# Hides test output, shows a spinner, and displays only the coverage report at the end.
-# Also runs coverage-check.php to report gaps with exclusions applied.
-do_coverage_report() {
+# Run both coverage suites (single-site + multisite) and display summary.
+# Hides test output, shows a spinner, then reports coverage via coverage-check.php.
+do_coverage_summary() {
 	local exclude_flag=""
 	local exclude_file="coverage-exclude.json"
 	local tmpfile
@@ -828,7 +802,7 @@ case "$1" in
 	test:multisite) run_tests multisite ;;
 	test:coverage) run_tests coverage ;;
 	coverage:check) run_coverage_check "${@:2}" ;;
-	coverage:report) do_coverage_report ;;
+	coverage:summary) do_coverage_summary ;;
 	test:php80) run_tests php80 ;;
 	*)
 		"$OPOSSUM" -f "$COMPOSE" "$@"
