@@ -587,9 +587,10 @@ Usage:
                         run the coverage suite, then gate on coverage/clover.xml.
                         With --multisite, also pass --exclude <json> for the
                         environment-only lines (see coverage-exclude.json).
-  mac-env coverage:report
+  mac-env coverage:summary [--exclude <json>]
                         run both coverage suites (single + multisite) and
-                        display the --coverage-text output.
+                        display the coverage-check.php summary for each.
+                        Defaults to --exclude coverage-exclude.json when present.
   mac-env install-wp-tests [wp-version]   seed ~/.wp-env cache from git (X.Y.Z | trunk | latest)
   mac-env fetch            re-pull the pinned WordPress version (git fetch in place)
   mac-env cache-list       pick a populated ~/.wp-env cache dir; writes WP_ENV_CACHE_DIR to .env
