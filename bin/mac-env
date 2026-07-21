@@ -712,8 +712,10 @@ run_tests() {
 }
 
 # Colorize coverage output: green for 100%, yellow for 90-99%, red for <90%
+# Strips PHPUnit's ANSI codes first, then applies our own coloring only to percentages
 colorize_coverage() {
-	awk '{
+	# Strip all ANSI escape codes first
+	sed 's/\x1b\[[0-9;]*m//g' | awk '{
 		# Color coverage percentages
 		if (match($0, /[0-9]+\.[0-9]+%/)) {
 			pct = substr($0, RSTART, RLENGTH-1) + 0
