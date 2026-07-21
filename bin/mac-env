@@ -760,34 +760,24 @@ do_coverage_report() {
 		exclude_flag="--exclude $exclude_file"
 	fi
 	
-	tmpfile="$(mktemp)"
-	
 	# Run single-site coverage tests
 	start_spinner "Running single-site coverage tests..."
-	run_tests coverage > "$tmpfile" 2>&1 || { stop_spinner; rm -f "$tmpfile"; return $?; }
+	run_tests coverage > /dev/null 2>&1 || { stop_spinner; return $?; }
 	stop_spinner
 	
 	echo "=== Single-site coverage ==="
-	sed -n '/Code Coverage Report:/,$p' "$tmpfile" | colorize_coverage
-	echo ""
-	echo "=== Single-site coverage check ==="
 	php "$SCRIPT_DIR/coverage-check.php" coverage/clover.xml $exclude_flag
 	local single_exit=$?
 	echo ""
 	
 	# Run multisite coverage tests
 	start_spinner "Running multisite coverage tests..."
-	run_tests coverage-multisite > "$tmpfile" 2>&1 || { stop_spinner; rm -f "$tmpfile"; return $?; }
+	run_tests coverage-multisite > /dev/null 2>&1 || { stop_spinner; return $?; }
 	stop_spinner
 	
 	echo "=== Multisite coverage ==="
-	sed -n '/Code Coverage Report:/,$p' "$tmpfile" | colorize_coverage
-	echo ""
-	echo "=== Multisite coverage check ==="
 	php "$SCRIPT_DIR/coverage-check.php" --multisite coverage/clover-multisite.xml $exclude_flag
 	local multi_exit=$?
-	
-	rm -f "$tmpfile"
 	
 	# Exit non-zero if either check has gaps
 	[ $single_exit -eq 0 ] && [ $multi_exit -eq 0 ]
