@@ -587,6 +587,9 @@ Usage:
                         run the coverage suite, then gate on coverage/clover.xml.
                         With --multisite, also pass --exclude <json> for the
                         environment-only lines (see coverage-exclude.json).
+  mac-env coverage:report
+                        run both coverage suites (single + multisite) and
+                        display the --coverage-text output.
   mac-env install-wp-tests [wp-version]   seed ~/.wp-env cache from git (X.Y.Z | trunk | latest)
   mac-env fetch            re-pull the pinned WordPress version (git fetch in place)
   mac-env cache-list       pick a populated ~/.wp-env cache dir; writes WP_ENV_CACHE_DIR to .env
@@ -708,6 +711,47 @@ run_tests() {
 	$coverage_flags
 }
 
+# Run both coverage suites (single-site + multisite) and display --coverage-text.
+# Also runs coverage-check.php to report gaps with exclusions applied.
+do_coverage_report() {
+	local exclude_flag=""
+	local exclude_file="coverage-exclude.json"
+	
+	# Parse --exclude flag, default to coverage-exclude.json if it exists
+	while [ $# -gt 0 ]; do
+		case "$1" in
+			--exclude)
+				exclude_flag="--exclude ${2:-}"
+				shift
+				;;
+		esac
+		shift
+	done
+	
+	# Default to coverage-exclude.json if no --exclude specified and file exists
+	if [ -z "$exclude_flag" ] && [ -f "$exclude_file" ]; then
+		exclude_flag="--exclude $exclude_file"
+	fi
+	
+	echo "=== Single-site coverage ==="
+	run_tests coverage || return $?
+	echo ""
+	echo "=== Single-site coverage check ==="
+	php "$SCRIPT_DIR/coverage-check.php" coverage/clover.xml $exclude_flag
+	local single_exit=$?
+	echo ""
+	
+	echo "=== Multisite coverage ==="
+	run_tests coverage-multisite || return $?
+	echo ""
+	echo "=== Multisite coverage check ==="
+	php "$SCRIPT_DIR/coverage-check.php" --multisite coverage/clover-multisite.xml $exclude_flag
+	local multi_exit=$?
+	
+	# Exit non-zero if either check has gaps
+	[ $single_exit -eq 0 ] && [ $multi_exit -eq 0 ]
+}
+
 # Run the coverage suite, then gate host-side on the bind-mounted clover.
 # clover is written inside the container but bind-mounted to the plugin root,
 # so it is readable from the host. Plugins may pass --exclude <json> for
@@ -753,6 +797,7 @@ case "$1" in
 	test:multisite) run_tests multisite ;;
 	test:coverage) run_tests coverage ;;
 	coverage:check) run_coverage_check "${@:2}" ;;
+	coverage:report) do_coverage_report ;;
 	test:php80) run_tests php80 ;;
 	*)
 		"$OPOSSUM" -f "$COMPOSE" "$@"
