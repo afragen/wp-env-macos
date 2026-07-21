@@ -696,7 +696,9 @@ for env in d.get('env',{}).values():
 }
 
 run_tests() {
-	case "$1" in
+	local mode="${1:-default}"
+	shift 2>/dev/null || true
+	case "$mode" in
 		multisite) export WP_MULTISITE=1; coverage_flags="" ;;
 		coverage) export WP_MULTISITE=0; coverage_flags="--coverage-clover=/var/www/html/wp-content/plugins/${WP_PLUGIN_SLUG}/coverage/clover.xml --coverage-text" ;;
 		coverage-multisite) export WP_MULTISITE=1; coverage_flags="--coverage-clover=/var/www/html/wp-content/plugins/${WP_PLUGIN_SLUG}/coverage/clover-multisite.xml --coverage-text" ;;
@@ -708,7 +710,9 @@ run_tests() {
 	WP_TESTS_PHPUNIT_POLYFILLS_PATH=/var/www/html/wp-content/plugins/${WP_PLUGIN_SLUG}/vendor/yoast/phpunit-polyfills \
 	/var/www/html/wp-content/plugins/${WP_PLUGIN_SLUG}/vendor/bin/phpunit \
 	--config=/var/www/html/wp-content/plugins/${WP_PLUGIN_SLUG}/phpunit.xml \
-	$coverage_flags
+	--colors=always \
+	$coverage_flags \
+	"$@"
 }
 
 # Run both coverage suites (single-site + multisite) and display summary.
