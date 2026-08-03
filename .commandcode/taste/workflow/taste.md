@@ -1,0 +1,9 @@
+# Workflow
+- For auto-discovering opossum/container `mac-env` wrappers that replace wp-env: include a command to run `env:install` (e.g., `npm run env:install`) to set up a WordPress site instance after provisioning the stack. Confidence: 0.65
+- When adding third-party tools that replace system components (e.g., container runtimes), test the add-on/plugin against the existing system first before replacing the system runtime. Confidence: 0.65
+- Avoid workflows that require sudo for setup steps (e.g., DNS domain creation, container runtime configuration). Confidence: 0.65
+- Bundle dev environment setups (e.g., opossum/container compose stacks with wrappers) as reusable templates that can be ported to other projects. Confidence: 0.60
+- Have `init` fully scaffold a project's setup automatically rather than requiring manual steps: append the correct npm scripts (env:start, env:stop, test, etc.) to package.json, and create default config files (e.g., `.wp-env.json`) when missing — without overwriting anything the user already has. Confidence: 0.8
+- Prefers self-contained tooling that avoids heavyweight transitive dependencies (e.g., git-clone-based cache seeding over npm packages pulling ~390 transitive packages like `@wordpress/env`) and prefers the no-dependency variant as the default. Confidence: 0.65
+- When adding config-driven behavior (e.g., a `phpVersion` key), mirror the upstream tool's own convention/key names so the drop-in remains compatible, and fall back to the current hardcoded default when the key is absent. Confidence: 0.8
+- When committing changes, exclude taste file changes (e.g., `.commandcode/taste/`) from the agent's commit — the user commits taste changes separately. Confidence: 0.8
