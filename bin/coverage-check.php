@@ -1,6 +1,6 @@
 <?php
 /**
- * Generic coverage gate, bundled with wp-env-opossum.
+ * Generic coverage gate, bundled with wp-env-macos.
  *
  * Parses clover.xml and reports only the uncovered statement lines. Exits 0 at
  * 100% line coverage, 1 on any gap. Plugin-specific (environment-only) line
@@ -8,7 +8,7 @@
  *   { "multisite": { "src/X.php": [315, 339] } }
  * When --multisite is set, only the "multisite" key applies.
  *
- * @package wp-env-opossum
+ * @package wp-env-macos
  */
 
 $env      = in_array( '--multisite', $argv, true ) ? 'multisite' : 'singlesite';

@@ -1,4 +1,5 @@
-FROM wordpress:php8.2
+ARG PHP_VERSION=8.2
+FROM wordpress:php${PHP_VERSION}
 
 # Update apt sources for archived versions of Debian.
 

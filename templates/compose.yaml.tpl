@@ -1,19 +1,21 @@
 # Template rendered by `mac-env init` into a project's compose.yaml.
-# Placeholders @@PLUGIN_SLUG@@, @@DEV_THEME@@, @@FIXTURE_PLUGIN_MOUNTS@@,
-# @@FIXTURE_THEME_MOUNTS@@ are substituted at init time.
+# Placeholders @@PLUGIN_SLUG@@, @@PHP_VERSION@@, @@DEV_THEME@@,
+# @@FIXTURE_PLUGIN_MOUNTS@@, @@FIXTURE_THEME_MOUNTS@@ are substituted at init time.
 #
 # Bring up with:   mac-env up        Tear down:   mac-env down -v
 # Run tests with:  mac-env test
 #
 # Values are interpolated from .env. WordPress core + PHPUnit libs come from
-# @wordpress/env's cache (WP_ENV_CACHE_DIR, populated by `wp-env start` once
-# or by `mac-env install-wp-tests`).
+# the git-seeded cache (WP_ENV_CACHE_DIR, populated by `mac-env install-wp-tests`).
+# The container PHP version comes from "phpVersion" in .wp-env.json (default 8.2).
 #
 # Database reachability uses container-name DNS: run
 # `sudo container system dns create opossum` ONCE (mac-env does this
 # automatically on first `up` if missing). After that, the app containers
 # reach the database by its bare service name (mysql / tests-mysql) on the
 # internal port 3306 — no host LAN IP and no published DB ports needed.
+
+x-php-version: &php-version '@@PHP_VERSION@@'
 
 services:
   mysql:
@@ -57,6 +59,7 @@ services:
         HOST_UID: '${HOST_UID}'
         HOST_GID: '${HOST_GID}'
         XDEBUG_HOST: '${XDEBUG_HOST}'
+        PHP_VERSION: *php-version
     ports:
       - '${WP_ENV_PORT:-8888}:80'
     environment:
@@ -86,6 +89,7 @@ services:
         HOST_UID: '${HOST_UID}'
         HOST_GID: '${HOST_GID}'
         XDEBUG_HOST: '${XDEBUG_HOST}'
+        PHP_VERSION: *php-version
     ports:
       - '${WP_ENV_TESTS_PORT:-8889}:80'
     environment:
@@ -115,6 +119,7 @@ services:
         HOST_UID: '${HOST_UID}'
         HOST_GID: '${HOST_GID}'
         XDEBUG_HOST: '${XDEBUG_HOST}'
+        PHP_VERSION: *php-version
     volumes:
       - '${WP_ENV_CACHE_DIR}/WordPress:/var/www/html'
       - '${WP_ENV_CACHE_DIR}/WordPress-PHPUnit/tests/phpunit:/wordpress-phpunit'
@@ -141,6 +146,7 @@ services:
         HOST_UID: '${HOST_UID}'
         HOST_GID: '${HOST_GID}'
         XDEBUG_HOST: '${XDEBUG_HOST}'
+        PHP_VERSION: *php-version
     volumes:
       - '${WP_ENV_CACHE_DIR}/tests-WordPress:/var/www/html'
       - '${WP_ENV_CACHE_DIR}/tests-WordPress-PHPUnit/tests/phpunit:/wordpress-phpunit'

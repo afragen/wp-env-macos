@@ -1,4 +1,5 @@
-FROM wordpress:cli-php8.2
+ARG PHP_VERSION=8.2
+FROM wordpress:cli-php${PHP_VERSION}
 
 # Switch to root so we can create users.
 USER root

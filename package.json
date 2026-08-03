@@ -1,10 +1,10 @@
 {
-  "name": "wp-env-opossum",
-  "version": "1.0.34",
-  "description": "A drop-in @wordpress/env replacement that runs the wp-env test environment on Apple's native `container` runtime via opossum — no Podman or Docker Desktop VM.",
+  "name": "wp-env-macos",
+  "version": "2.0.0",
+  "description": "A drop-in @wordpress/env replacement that runs the wp-env test environment on Apple's native `container` runtime via opossum.",
   "bin": {
     "mac-env": "bin/mac-env",
-    "wp-env-opossum": "bin/mac-env"
+    "wp-env-macos": "bin/mac-env"
   },
   "files": [
     "bin/",
@@ -33,6 +33,6 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/afragen/wp-env-opossum.git"
+    "url": "git+https://github.com/afragen/wp-env-macos.git"
   }
 }

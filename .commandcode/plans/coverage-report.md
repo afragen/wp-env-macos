@@ -11,7 +11,7 @@ Keeps the existing `coverage:check` command untouched (it remains the 100% gate)
 
 ## Files to modify
 
-### 1. `bin/mac-env` (wp-env-opossum)
+### 1. `bin/mac-env` (wp-env-macos)
 
 **Add `do_coverage_report()` function** — runs both coverage suites and displays the text output:
 
