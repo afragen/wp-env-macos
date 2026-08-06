@@ -9,7 +9,7 @@ VM**. (One `sudo` is needed, once, to set up container DNS — see Requirements.
 It brings up the familiar two-site WordPress layout (a dev site you can browse
 and a separate tests site that PHPUnit boots against), provisions WordPress
 (`wp core install`, plugin/theme activation, `wp-tests-config.php` generation),
-and runs your PHPUnit suite — all orchestrated by `mac-env`, a small shell
+and runs your PHPUnit suite — all orchestrated by `wp-env-macos`, a small shell
 wrapper around `opossum`.
 
 ---
@@ -27,7 +27,7 @@ provisioning steps on top of opossum instead.
 your `npm test` workflow.
 
 **What changes:** the runtime (opossum + `container`) and the orchestration
-script (`mac-env`). The first time, you seed `~/.wp-env` with `mac-env
+script (`wp-env-macos`). The first time, you seed `~/.wp-env` with `wp-env-macos
 install-wp-tests`, which clones WordPress core and the PHPUnit test framework
 directly from GitHub — no `@wordpress/env` dependency at any point.
 
@@ -51,8 +51,8 @@ directly from GitHub — no `@wordpress/env` dependency at any point.
   ```sh
   sudo container system dns create opossum
   ```
-  (`mac-env up` also runs this automatically on first start if it's missing.)
-- **Python 3** (used by `mac-env` for JSON parsing — present on macOS)
+  (`wp-env-macos up` also runs this automatically on first start if it's missing.)
+- **Python 3** (used by `wp-env-macos` for JSON parsing — present on macOS)
 
 ---
 
@@ -67,8 +67,8 @@ npm install -D wp-env-macos
 
 This installs `wp-env-macos` as a devDependency; `init` (below) adds the npm
 scripts for you, so you don't need to edit `package.json` manually. After
-installing, the first-time flow is `mac-env install-wp-tests` (seed the
-`~/.wp-env` cache from GitHub) → `mac-env init` → `mac-env up` — see
+installing, the first-time flow is `wp-env-macos install-wp-tests` (seed the
+`~/.wp-env` cache from GitHub) → `wp-env-macos init` → `wp-env-macos up` — see
 [First-time setup](#first-time-setup).
 
 > If you'd rather set the scripts yourself, the mapping is:
@@ -86,7 +86,7 @@ wp-env-macos keeps a local cache of WordPress core and the PHPUnit test
 framework under `~/.wp-env/<version>/`. Seed it directly from GitHub:
 
 ```sh
-mac-env install-wp-tests latest     # or a pinned X.Y.Z, or `trunk`
+wp-env-macos install-wp-tests latest     # or a pinned X.Y.Z, or `trunk`
 ```
 
 This git-clones WordPress core (`WordPress/WordPress`) and the PHPUnit test
@@ -98,8 +98,8 @@ spinner with the current phase when run in a terminal (suppressed for
 pipes/CI). If the cache is already seeded, re-running `install-wp-tests`
 re-pulls in place (a `git fetch` + rsync) rather than re-cloning.
 
-List existing caches with `mac-env cache-list`, and re-pull the pinned version
-later with `mac-env fetch` (see [Re-pull with `mac-env fetch`](#re-pull-with-mac-env-fetch)).
+List existing caches with `wp-env-macos cache-list`, and re-pull the pinned version
+later with `wp-env-macos fetch` (see [Re-pull with `wp-env-macos fetch`](#re-pull-with-wp-env-macos-fetch)).
 
 ### 2. Initialize the project
 
@@ -143,10 +143,10 @@ in `.env` yourself:
   four subdirs `WordPress/`, `tests-WordPress/`, `WordPress-PHPUnit/`, and
   `tests-WordPress-PHPUnit/` will work — the plugin itself is mounted from your
   project (`${PWD}`), not from the cache, so the cache is just generic WordPress
-  core + PHPUnit libs. List them with `mac-env cache-list` and use any complete
+  core + PHPUnit libs. List them with `wp-env-macos cache-list` and use any complete
   one:
   ```sh
-  mac-env cache-list
+  wp-env-macos cache-list
   # pick any dir that has WordPress/, tests-WordPress/, *-PHPUnit/ subdirs
   ```
   Then add that path to your project `.env` (create `.env` if it doesn't
@@ -154,7 +154,7 @@ in `.env` yourself:
   ```sh
   echo "WP_ENV_CACHE_DIR=/Users/you/.wp-env/d0e5a894db5a72bb9cfe0514aeee78fb" >> .env
   ```
-- **No `~/.wp-env` yet:** run `mac-env install-wp-tests [version]` first (step 1)
+- **No `~/.wp-env` yet:** run `wp-env-macos install-wp-tests [version]` first (step 1)
   to populate it. Then re-run `npx wp-env-macos init` — it will now auto-fill
   the path into `.env` for you.
 
@@ -172,7 +172,7 @@ wp-env's convention), set `phpVersion` in `.wp-env.json`:
 }
 ```
 
-Then re-run `mac-env init` (re-renders `compose.yaml`) and `mac-env up`
+Then re-run `wp-env-macos init` (re-renders `compose.yaml`) and `wp-env-macos up`
 (re-builds the images). `WP_ENV_PHP_VERSION` overrides the file when set. The
 WordPress/CLI base images are the official `wordpress:php<version>` /
 `wordpress:cli-php<version>` images, so any version with a published image
@@ -198,14 +198,14 @@ npm run env:stop                 # npx wp-env-macos down
 npm run env:stop -- -v           # also drop the database volumes
 ```
 
-`mac-env up` is idempotent — re-running it re-provisions safely (skips an already
+`wp-env-macos up` is idempotent — re-running it re-provisions safely (skips an already
 installed site, re-syncs the port in `wp-config.php`, re-activates plugins).
 
 ---
 
 ## Commands
 
-`mac-env` (alias `wp-env-macos`) supports:
+`wp-env-macos` (alias `mac-env`) supports:
 
 | Command                | Description                                                              |
 | ---------------------- | ------------------------------------------------------------------------ |
@@ -224,7 +224,7 @@ installed site, re-syncs the port in `wp-config.php`, re-activates plugins).
 | `ps`, `logs`, `exec`, `run`, `config`, `build`, … | Passed straight through to `opossum`. |
 
 Any unrecognized command is forwarded to `opossum -f compose.yaml`, so you can
-use the full opossum CLI (`mac-env exec cli wp plugin list`, etc.).
+use the full opossum CLI (`wp-env-macos exec cli wp plugin list`, etc.).
 
 ---
 
@@ -247,7 +247,7 @@ All optional — sensible defaults apply. Set them in `.env` or the environment.
 > **Concurrent projects:** only one stack can be active at a time on a given
 > host (Apple `container` binds host ports directly, and opossum's
 > per-project namespacing does not isolate host ports — same as two wp-env
-> instances would collide). Stop one (`mac-env down`) before starting another.
+> instances would collide). Stop one (`wp-env-macos down`) before starting another.
 > Because you run one at a time, the standard 8888/8889 ports work for every
 > project.
 
@@ -259,7 +259,7 @@ All optional — sensible defaults apply. Set them in `.env` or the environment.
   - `wordpress` + `cli` + `mysql` → the **dev site** on `:8888`.
   - `tests-wordpress` + `tests-cli` + `tests-mysql` → the **tests site** on
     `:8889`, bootstrapped fresh by PHPUnit.
-- **Database reachability via container DNS:** `mac-env up` runs
+- **Database reachability via container DNS:** `wp-env-macos up` runs
   `sudo container system dns create opossum` once (idempotent) so the app
   containers reach the database by its bare service name (`mysql` /
   `tests-mysql`) on the internal port 3306 — no host LAN IP and no published
@@ -274,22 +274,22 @@ All optional — sensible defaults apply. Set them in `.env` or the environment.
 
 ---
 
-## Re-pull with `mac-env fetch`
+## Re-pull with `wp-env-macos fetch`
 
-`mac-env up` never does network I/O. To refresh the already-pinned version in
+`wp-env-macos up` never does network I/O. To refresh the already-pinned version in
 place (a fast `git fetch`/`pull` + rsync — no re-download):
 
 ```sh
-mac-env fetch          # re-pulls the version pinned in <cache>/.wp-env-version
+wp-env-macos fetch          # re-pulls the version pinned in <cache>/.wp-env-version
 ```
 
-To **switch** versions, re-run `mac-env install-wp-tests <new-version>` (it
+To **switch** versions, re-run `wp-env-macos install-wp-tests <new-version>` (it
 writes a new `.wp-env-version`).
 
-## List caches with `mac-env cache-list`
+## List caches with `wp-env-macos cache-list`
 
 ```sh
-mac-env cache-list     # lists ~/.wp-env/* with their pinned version
+wp-env-macos cache-list     # lists ~/.wp-env/* with their pinned version
 # e.g.
 #   /Users/you/.wp-env/wp-env-macos-6.7      6.7        (git)
 ```
@@ -302,10 +302,10 @@ Handy when several cache dirs exist and `init` can't auto-detect one
 ## Troubleshooting
 
 **`wp-tests-config.php not found`** — the `~/.wp-env` cache is empty. Run
-`mac-env install-wp-tests` to populate it, then `mac-env up`.
+`wp-env-macos install-wp-tests` to populate it, then `wp-env-macos up`.
 
 **Dev site redirects to the wrong port / blank page** — wp-env bakes
-`WP_SITEURL`/`WP_HOME` into the cache `wp-config.php` at install time. `mac-env
+`WP_SITEURL`/`WP_HOME` into the cache `wp-config.php` at install time. `wp-env-macos
 provision` re-syncs these to the current port and activates a real theme
 (`WP_ENV_DEV_THEME`) so the page renders. If a browser cached an old redirect,
 hard-refresh (⌘-Option-R) or clear the site's cache.
@@ -319,7 +319,7 @@ holding 8888/8889/3306/3307. Stop it, or run only one opossum project at a time.
 **Containers won't resolve each other by name** — run
 `sudo container system dns create opossum` once (idempotent). After that, the
 app containers reach the database by its bare service name (`mysql` /
-`tests-mysql`) on the internal port 3306. `mac-env up` runs this automatically
+`tests-mysql`) on the internal port 3306. `wp-env-macos up` runs this automatically
 on first start if it's missing.
 
 ---
