@@ -257,6 +257,8 @@ render_env() {
 _SPINNER_PID=""
 _SPINNER_LABEL=""
 start_spinner() {
+	# Never start a second spinner while one is running.
+	[ -n "$_SPINNER_PID" ] && return 0
 	_SPINNER_LABEL="$1"
 	[ -t 1 ] || return 0
 	printf '%s' "$_SPINNER_LABEL"
@@ -291,7 +293,9 @@ stop_spinner() {
 resolve_wp_version() {
 	local v="${1:-latest}"
 	if [ "$v" = "trunk" ]; then
-		printf 'trunk'
+		# The release repo's trunk lives on `master` (wordpress-develop uses
+		# `trunk`); keep the pinned version label as "trunk" for readability.
+		printf 'trunk:master'
 		return
 	fi
 	if [ "$v" = "latest" ] || [ -z "$v" ]; then
@@ -312,26 +316,34 @@ sync_wp_env_cache() {
 	src_wp="$cache_dir/.src-wordpress"
 	src_dev="$cache_dir/.src-develop"
 
+	# The tag may carry an explicit branch suffix (e.g. "trunk:master"); split
+	# it out here, before any `local` shadows the positional params below.
+	wp_branch="${tag#*:}"
+	wp_tag="${tag%:*}"
+
 	# --- WordPress/WordPress (release core) -> WordPress/ + tests-WordPress/ ---
 	start_spinner "cloning WordPress core ($tag)…"
 	if [ -d "$src_wp/.git" ]; then
 		# Skip the network fetch + rsync when the clone already sits at $tag
 		# (e.g. a re-pull of an unchanged pinned version) — makes re-runs fast.
-		local at_wp="$tag"
-		[ "$tag" != "trunk" ] && at_wp="$(git -C "$src_wp" rev-parse "$tag" 2>/dev/null || true)"
+		local at_wp="$(git -C "$src_wp" rev-parse "$wp_tag" 2>/dev/null || true)"
 		local cur_wp="$(git -C "$src_wp" rev-parse HEAD 2>/dev/null || true)"
 		if [ -n "$at_wp" ] && [ "$at_wp" = "$cur_wp" ]; then
-			git -C "$src_wp" checkout -q "$tag" >/dev/null 2>&1 || true
-		elif [ "$tag" = "trunk" ]; then
+			git -C "$src_wp" checkout -q "$wp_tag" >/dev/null 2>&1 || true
+		elif [ "$wp_tag" = "trunk" ]; then
 			git -C "$src_wp" fetch --tags >/dev/null 2>&1 || true
 			git -C "$src_wp" pull --ff-only >/dev/null 2>&1 || true
 		else
 			git -C "$src_wp" fetch --tags >/dev/null 2>&1 || true
-			git -C "$src_wp" checkout "$tag" >/dev/null 2>&1 || true
+			git -C "$src_wp" checkout "$wp_tag" >/dev/null 2>&1 || true
 		fi
 	else
 		rm -rf "$src_wp"
-		git clone --depth 1 --branch "$tag" https://github.com/WordPress/WordPress.git "$src_wp" >/dev/null 2>&1
+		git clone --depth 1 --branch "$wp_branch" https://github.com/WordPress/WordPress.git "$src_wp" >/dev/null 2>&1 || {
+			stop_spinner
+			echo "mac-env: failed to clone WordPress core from git" >&2
+			return 1
+		}
 	fi
 	mkdir -p "$cache_dir/WordPress" "$cache_dir/tests-WordPress"
 	stop_spinner
@@ -347,23 +359,31 @@ sync_wp_env_cache() {
 	fi
 
 	# --- WordPress/wordpress-develop (test framework) -> *-PHPUnit/tests/phpunit/ ---
+	# (wordpress-develop's trunk branch is literally named "trunk", unlike the
+	# release repo's "master", so override the branch for the trunk label.)
+	dev_branch="${tag#*:}"
+	dev_tag="${tag%:*}"
+	[ "$dev_tag" = "trunk" ] && dev_branch="trunk"
 	start_spinner "cloning wordpress-develop ($tag)…"
 	if [ -d "$src_dev/.git" ]; then
-		local at_dev="$tag"
-		[ "$tag" != "trunk" ] && at_dev="$(git -C "$src_dev" rev-parse "$tag" 2>/dev/null || true)"
+		local at_dev="$(git -C "$src_dev" rev-parse "$dev_tag" 2>/dev/null || true)"
 		local cur_dev="$(git -C "$src_dev" rev-parse HEAD 2>/dev/null || true)"
 		if [ -n "$at_dev" ] && [ "$at_dev" = "$cur_dev" ]; then
-			git -C "$src_dev" checkout -q "$tag" >/dev/null 2>&1 || true
-		elif [ "$tag" = "trunk" ]; then
+			git -C "$src_dev" checkout -q "$dev_tag" >/dev/null 2>&1 || true
+		elif [ "$dev_tag" = "trunk" ]; then
 			git -C "$src_dev" fetch --tags >/dev/null 2>&1 || true
 			git -C "$src_dev" pull --ff-only >/dev/null 2>&1 || true
 		else
 			git -C "$src_dev" fetch --tags >/dev/null 2>&1 || true
-			git -C "$src_dev" checkout "$tag" >/dev/null 2>&1 || true
+			git -C "$src_dev" checkout "$dev_tag" >/dev/null 2>&1 || true
 		fi
 	else
 		rm -rf "$src_dev"
-		git clone --depth 1 --branch "$tag" https://github.com/WordPress/wordpress-develop.git "$src_dev" >/dev/null 2>&1
+		git clone --depth 1 --branch "$dev_branch" https://github.com/WordPress/wordpress-develop.git "$src_dev" >/dev/null 2>&1 || {
+			stop_spinner
+			echo "mac-env: failed to clone wordpress-develop from git" >&2
+			return 1
+		}
 	fi
 	stop_spinner
 	start_spinner "arranging PHPUnit libs + wp-tests-config.php…"
@@ -391,6 +411,7 @@ install_wp_tests() {
 	local ver="${1:-latest}"
 	local tag
 	tag="$(resolve_wp_version "$ver")" || return 1
+	local wp_tag="${tag%:*}"  # "X.Y.Z" | "trunk" (label used for the cache dir)
 
 	# Pick the cache dir.
 	local cache_dir=""
@@ -399,7 +420,7 @@ install_wp_tests() {
 	elif [ "$(list_cache_dirs | grep -c . || true)" = "1" ]; then
 		cache_dir="$(list_cache_dirs)"
 	else
-		cache_dir="$HOME/.wp-env/wp-env-macos-$tag"
+		cache_dir="$HOME/.wp-env/wp-env-macos-$wp_tag"
 	fi
 	mkdir -p "$cache_dir"
 
@@ -413,10 +434,10 @@ install_wp_tests() {
 	fi
 
 	sync_wp_env_cache "$cache_dir" "$tag"
-	printf '%s' "$tag" > "$cache_dir/.wp-env-version"
+	printf '%s' "$wp_tag" > "$cache_dir/.wp-env-version"
 
 	echo "mac-env: cache ready at $cache_dir"
-	echo "  version     : $tag"
+	echo "  version     : $wp_tag"
 	echo "  next step   : set WP_ENV_CACHE_DIR in .env (or run 'mac-env init' to auto-fill), then 'mac-env up'"
 }
 
