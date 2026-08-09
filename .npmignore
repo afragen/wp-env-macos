@@ -1,3 +1,5 @@
 .npmignore
 .commandcode/
 AGENTS.md
+.vscode/
+.DS_Store

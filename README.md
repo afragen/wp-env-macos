@@ -123,7 +123,9 @@ This scaffolds into the current project:
 - **`.env`** — created if missing (or appended to if it already exists, once,
   idempotently). It **auto-fills `WP_ENV_CACHE_DIR`** when `~/.wp-env`
   contains exactly one cache directory, and prints the path so you can copy it
-  in. If multiple cache dirs exist, or none, `init` tells you how to find
+  in. Re-running `init` re-detects and auto-fills the cache if `WP_ENV_CACHE_DIR`
+  isn't set yet, so it converges even if the cache was seeded after the first
+  `init`. If multiple cache dirs exist, or none, `init` tells you how to find
   the right one (see step 3).
 - **`package.json`** — if present, `init` idempotently adds the
   `env:start`/`env:stop`/`env:install`/`test` scripts (and
@@ -136,8 +138,9 @@ This scaffolds into the current project:
 
 `init` prints the cache dir it detected and, when there's exactly one,
 auto-writes `WP_ENV_CACHE_DIR` into `.env` for you — in that case you're done.
-If it could not auto-fill (multiple or no cache dirs), set `WP_ENV_CACHE_DIR`
-in `.env` yourself:
+`wp-env-macos` reads `.env` automatically on every run, so there's no need to
+`source .env` manually. If it could not auto-fill (multiple or no cache dirs),
+set `WP_ENV_CACHE_DIR` in `.env` yourself:
 
 - **Multiple cache dirs under `~/.wp-env`:** any cache dir that contains the
   four subdirs `WordPress/`, `tests-WordPress/`, `WordPress-PHPUnit/`, and
@@ -283,8 +286,9 @@ place (a fast `git fetch`/`pull` + rsync — no re-download):
 wp-env-macos fetch          # re-pulls the version pinned in <cache>/.wp-env-version
 ```
 
-To **switch** versions, re-run `wp-env-macos install-wp-tests <new-version>` (it
-writes a new `.wp-env-version`).
+To **switch** versions, re-run `wp-env-macos install-wp-tests <new-version>` — it
+re-syncs the cache in place and writes a new `.wp-env-version` (no separate cache
+dir is created).
 
 ## List caches with `wp-env-macos cache-list`
 
@@ -357,10 +361,10 @@ cd /path/to/wp-env-macos && npm link
 cd /path/to/your-plugin && npm link wp-env-macos
 ```
 
-Then `npx wp-env-macos init` (or `npx mac-env`) resolves to the linked
-copy. If `npm install` reports "up to date" and skips the local package,
-remove `package-lock.json` + `node_modules` and reinstall — a stale lockfile
-pin to a previous `file:` path can block re-resolution.
+Then `npx wp-env-macos init` resolves to the linked copy. If `npm install`
+reports "up to date" and skips the local package, remove `package-lock.json` +
+`node_modules` and reinstall — a stale lockfile pin to a previous `file:` path
+can block re-resolution.
 
 ---
 
