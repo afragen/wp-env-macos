@@ -6,6 +6,7 @@
 See [workflow/taste.md](workflow/taste.md)
 # Communication
 - Approves plans tersely (e.g., "make changes") and expects immediate execution of the outlined plan rather than further discussion or confirmation. Confidence: 0.5
+- Reports bugs and debugging follow-ups tersely, supplying only the key narrowing fact (e.g., "it does work for latest") and expecting the agent to investigate to root cause, fix, and verify rather than asking clarifying questions. Confidence: 0.6
 
 # Documentation
 - Prefers documentation to present a single default workflow rather than multiple variants/options; when one variant is made the default, the superseded variant's instructions should be removed entirely, not kept alongside. Confidence: 0.85
