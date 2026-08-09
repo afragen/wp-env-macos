@@ -238,7 +238,7 @@ All optional — sensible defaults apply. Set them in `.env` or the environment.
 | `WP_ENV_PORT`              | `8888`               | Dev site port (matches wp-env).                                  |
 | `WP_ENV_TESTS_PORT`        | `8889`               | Tests site port (matches wp-env).                                |
 | `WP_PLUGIN_SLUG`           | project dir name     | Plugin directory under `wp-content/plugins` (mount + phpunit path). |
-| `WP_ENV_DEV_THEME`         | `twentytwentyfour`  | Theme activated on the **dev** site so it renders a real page.   |
+| `WP_ENV_DEV_THEME`         | `twentytwentyfive`  | Theme activated on the **dev** site so it renders a real page.   |
 | `WP_ENV_FIXTURE_PLUGINS`   | `tests/fixtures/plugins/*` | Space-separated host paths mounted as fixture plugins.      |
 | `WP_ENV_FIXTURE_THEMES`    | `tests/fixtures/themes/*`  | Space-separated host paths mounted as fixture themes.      |
 | `HOST_USERNAME`/`HOST_UID`/`HOST_GID` | auto (`id`) | Container user identity for bind mounts.                     |

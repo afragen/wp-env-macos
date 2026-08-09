@@ -25,7 +25,7 @@
 #   WP_ENV_FIXTURE_PLUGINS / WP_ENV_FIXTURE_THEMES
 #                         space-separated host paths mounted into the containers
 #                         as fixture plugins/themes (e.g. tests/fixtures/.../*)
-#   WP_ENV_DEV_THEME      theme activated on the dev site (default twentytwentyfour)
+#   WP_ENV_DEV_THEME      theme activated on the dev site (default twentytwentyfive)
 #   XDEBUG_HOST           IP/host xdebug connects back to (default host.docker.internal)
 
 set -e
@@ -55,7 +55,7 @@ PROJECT_NAME="$(basename "$PWD")"
 WP_PLUGIN_SLUG="${WP_PLUGIN_SLUG:-$PROJECT_NAME}"
 DEV_PORT="${WP_ENV_PORT:-8888}"
 TESTS_PORT="${WP_ENV_TESTS_PORT:-8889}"
-DEV_THEME="${WP_ENV_DEV_THEME:-twentytwentyfour}"
+DEV_THEME="${WP_ENV_DEV_THEME:-twentytwentyfive}"
 
 # One-time DNS setup so bare service names (mysql, tests-mysql) resolve across
 # the opossum-managed containers. Idempotent: only run sudo when the
@@ -237,7 +237,7 @@ WP_ENV_TESTS_PORT=8889
 # WP_PLUGIN_SLUG=$PROJECT_NAME
 
 # Theme activated on the dev site so it renders a real page (not a fixture stub).
-WP_ENV_DEV_THEME=twentytwentyfour
+WP_ENV_DEV_THEME=twentytwentyfive
 EOF
 }
 
