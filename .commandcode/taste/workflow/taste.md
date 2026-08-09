@@ -8,3 +8,4 @@
 - Prefers self-contained tooling that avoids heavyweight transitive dependencies (e.g., git-clone-based cache seeding over npm packages pulling ~390 transitive packages like `@wordpress/env`) and prefers the no-dependency variant as the default. Confidence: 0.65
 - When adding config-driven behavior (e.g., a `phpVersion` key), mirror the upstream tool's own convention/key names so the drop-in remains compatible, and fall back to the current hardcoded default when the key is absent. Confidence: 0.8
 - When committing changes, exclude taste file changes (e.g., `.commandcode/taste/`) from the agent's commit — the user commits taste changes separately. Confidence: 0.8
+- When committing, write descriptive multi-line commit messages (subject summarizing the fix + body covering root cause and each change) via a heredoc, and include pre-existing working-tree changes (e.g., a version bump in `package.json`) in the same commit rather than splitting them out. Confidence: 0.6

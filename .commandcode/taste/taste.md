@@ -5,7 +5,7 @@
 # Workflow
 See [workflow/taste.md](workflow/taste.md)
 # Communication
-- Approves plans tersely (e.g., "make changes", "continue") and expects immediate execution of the outlined plan rather than further discussion or confirmation; a bare "continue" means proceed autonomously through plan → implement → verify. Confidence: 0.65
+- Directs work with terse imperatives (e.g., "make changes", "continue", "commit changes") and expects immediate autonomous execution — inspect state, decide scope, implement/commit, and report the result — rather than further discussion or confirmation. Confidence: 0.75
 - Reports bugs and debugging follow-ups tersely, supplying only the key narrowing fact (e.g., "it does work for latest") and expecting the agent to investigate to root cause, fix, and verify rather than asking clarifying questions. Confidence: 0.6
 
 # Documentation
