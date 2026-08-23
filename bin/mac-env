@@ -800,7 +800,8 @@ for env in d.get('env',{}).values():
 
 run_tests() {
 	local mode="${1:-default}"
-	shift 2>/dev/null || true
+	shift
+	[ "$1" = "--" ] && shift
 	case "$mode" in
 		multisite) export WP_MULTISITE=1; coverage_flags="" ;;
 		coverage) export WP_MULTISITE=0; coverage_flags="--coverage-clover=/var/www/html/wp-content/plugins/${WP_PLUGIN_SLUG}/coverage/clover.xml --coverage-text" ;;
@@ -905,12 +906,12 @@ case "$1" in
 	install-wp-tests) install_wp_tests "${2:-latest}" ;;
 	fetch) fetch_wp_env_cache ;;
 	cache-list) cache_list "${@:2}" ;;
-	test) run_tests "${2:-default}" ;;
-	test:multisite) run_tests multisite ;;
-	test:coverage) run_tests coverage ;;
+	test) run_tests default "${@:2}" ;;
+	test:multisite) run_tests multisite "${@:2}" ;;
+	test:coverage) run_tests coverage "${@:2}" ;;
 	coverage:check) run_coverage_check "${@:2}" ;;
 	coverage:summary) do_coverage_summary ;;
-	test:php80) run_tests php80 ;;
+	test:php80) run_tests php80 "${@:2}" ;;
 	*)
 		"$OPOSSUM" -f "$COMPOSE" "$@"
 		;;
