@@ -44,7 +44,7 @@ directly from GitHub — no `@wordpress/env` dependency at any point.
   ```
 - [**opossum**](https://github.com/suruseas/opossum), installed via Homebrew:
   ```sh
-  brew install suruseas/opossum/opossum
+  brew install --cask suruseas/opossum/opossum
   ```
 - **Container DNS** — set up once so containers resolve each other by bare
   service name (this persists across restarts):
